@@ -83,12 +83,15 @@ api.interceptors.request.use(async config => {
   const data = typeof rawData === 'string' ? JSON.parse(rawData || '{}') : rawData ?? {};
   const path = url?.replace(import.meta.env.VITE_API_URL ?? '', '') ?? '';
 
-  if (method === 'post' && path === '/auth/login') {
-    if (data.username && data.password) {
+  if (method === 'post' && (path === '/auth/login' || path === '/login')) {
+    if (data.username && data.password || data.email && data.password) {
       return throwFakeResponse(config, {
         access_token: 'fake-jwt-token-123',
-        expires_in:   3600,
-        employee:     FAKE_EMPLOYEE,
+        token:        'fake-jwt-token-123',   
+        expires_in:    3600,
+        employee:      FAKE_EMPLOYEE,
+        user:          FAKE_EMPLOYEE,          
+        refresh_token: 'fake-refresh-token-456',  
       });
     }
     return throwFakeError(config, 401, 'Pogrešan username ili lozinka.');
