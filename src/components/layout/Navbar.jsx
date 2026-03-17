@@ -67,6 +67,13 @@ export default function Navbar() {
           >
             Klijenti
           </NavLink>
+
+          <NavLink
+            to="/payments"
+            className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
+          >
+          Plaćanja
+          </NavLink>
         </div>
 
         <div className={styles.right}>
