@@ -67,6 +67,12 @@ export default function Navbar() {
           >
             Klijenti
           </NavLink>
+          <NavLink
+            to="/loans"
+            className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
+          >
+            Krediti
+          </NavLink>
         </div>
 
         <div className={styles.right}>

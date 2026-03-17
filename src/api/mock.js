@@ -18,6 +18,12 @@ const FAKE_EMPLOYEE = {
   position_id:   1,
   active:        true,
   is_admin:      true,
+  permissions:   [
+    'employee.view',
+    'employee.create',
+    'employee.update',
+    'employee.delete',
+  ],
 };
 
 const FAKE_EMPLOYEES = [
@@ -31,6 +37,45 @@ const FAKE_EMPLOYEES = [
   { employee_id: 8, first_name: 'Ivana',   last_name: 'Marković',  email: 'ivana.markovic@rafbank.rs',    username: 'imarkovic',  position_id: 8, department: 'Finance',    active: true,  gender: 'F', date_of_birth: '1989-04-14', phone_number: '+381601234574', address: 'Balkanska 12' },
 ];
 
+// Mock data for Issue 17 - Loans
+export const FAKE_LOANS = [
+  {
+    id: "LN-882",
+    name: "Stambeni kredit u EUR",
+    account_number: "265-0000008877665-22",
+    total_amount: 120000.00,
+    remaining_debt: 95400.00,
+    currency: "EUR",
+    nks: 3.5, // Nominal Interest Rate
+    eks: 3.85, // Effective Interest Rate
+    next_due_date: "2026-04-15",
+    next_installment: 450.00,
+    repayment_period: 360,
+    status: "Aktivan",
+    installments: [
+      { id: 101, date: "2026-03-15", amount: 450.00, principal: 200.00, interest: 250.00, status: "Plaćeno" },
+      { id: 102, date: "2026-02-15", amount: 450.00, principal: 198.00, interest: 252.00, status: "Plaćeno" }
+    ]
+  },
+  {
+    id: "LN-105",
+    name: "Auto kredit",
+    account_number: "265-0000001122334-55",
+    total_amount: 15000.00,
+    remaining_debt: 8200.00,
+    currency: "EUR",
+    nks: 5.5,
+    eks: 6.1,
+    next_due_date: "2026-04-10",
+    next_installment: 210.00,
+    repayment_period: 84,
+    status: "Aktivan",
+    installments: [
+      { id: 201, date: "2026-03-10", amount: 210.00, principal: 150.00, interest: 60.00, status: "Plaćeno" }
+    ]
+  }
+];
+
 api.interceptors.request.use(async config => {
   await delay(DELAY);
 
@@ -38,40 +83,47 @@ api.interceptors.request.use(async config => {
   const data = typeof rawData === 'string' ? JSON.parse(rawData || '{}') : rawData ?? {};
   const path = url?.replace(import.meta.env.VITE_API_URL ?? '', '') ?? '';
 
-  if (method === 'post' && path === '/auth/login') {
-    if (data.username && data.password) {
+  if (method === 'post' && path === '/login') {
+    if (data.email && data.password) {
       return throwFakeResponse(config, {
-        access_token: 'fake-jwt-token-123',
-        expires_in:   3600,
-        employee:     FAKE_EMPLOYEE,
+        token:         'fake-jwt-token-123',
+        refresh_token: 'fake-refresh-token-123',
+        user:          FAKE_EMPLOYEE,
       });
     }
-    return throwFakeError(config, 401, 'Pogrešan username ili lozinka.');
+    return throwFakeError(config, 401, 'Pogrešan email ili lozinka.');
   }
 
-  if (method === 'post' && path === '/auth/register') {
+  if (method === 'post' && path === '/refresh') {
+    return throwFakeResponse(config, {
+      token:         'fake-jwt-token-123',
+      refresh_token: 'fake-refresh-token-123',
+    });
+  }
+
+  if (method === 'post' && path === '/register') {
     const novi = { employee_id: Date.now(), ...data };
     FAKE_EMPLOYEES.push(novi);
     return throwFakeResponse(config, { data: novi, message: 'Zaposleni je kreiran.' }, 201);
   }
 
-  if (method === 'post' && path === '/auth/activate') {
+  if (method === 'post' && path === '/activate') {
     return throwFakeResponse(config, { message: 'Nalog je aktiviran.' });
   }
 
-  if (method === 'post' && path === '/auth/forgot-password') {
+  if (method === 'post' && path === '/forgot-password') {
     return throwFakeResponse(config, { message: 'Email je poslat.' });
   }
 
-  if (method === 'post' && path === '/auth/reset-password') {
+  if (method === 'post' && path === '/reset-password') {
     return throwFakeResponse(config, { message: 'Lozinka je promenjena.' });
   }
 
-  if (method === 'post' && path === '/employees/change-password') {
+  if (method === 'post' && path === '/change-password') {
     return throwFakeResponse(config, { message: 'Lozinka je uspešno promenjena.' });
   }
 
-  const idMatch = path.match(/^\/employees\/(\d+)$/);
+  const idMatch = path.match(/^\/(\d+)$/);
 
   if (method === 'get' && idMatch) {
     const emp = FAKE_EMPLOYEES.find(e => e.employee_id === Number(idMatch[1]));
@@ -81,7 +133,7 @@ api.interceptors.request.use(async config => {
     return throwFakeError(config, 404, 'Zaposleni nije pronađen.');
   }
 
-  if (method === 'put' && idMatch) {
+  if (method === 'patch' && idMatch) {
     const idx = FAKE_EMPLOYEES.findIndex(e => e.employee_id === Number(idMatch[1]));
     if (idx !== -1) {
       Object.assign(FAKE_EMPLOYEES[idx], data);
@@ -99,7 +151,7 @@ api.interceptors.request.use(async config => {
     return throwFakeError(config, 404, 'Zaposleni nije pronađen.');
   }
 
-  if (method === 'get' && path === '/employees') {
+  if (method === 'get' && path === '') {
     let filtered = [...FAKE_EMPLOYEES];
 
     if (params?.email) {

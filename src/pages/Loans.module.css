@@ -1,0 +1,63 @@
+.loansPage {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.pageHeader {
+  margin-bottom: 30px;
+}
+
+.pageHeader h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  color: #2c3e50;
+}
+
+.pageHeader p {
+  color: #7f8c8d;
+  margin: 5px 0 0 0;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 350px 1fr; /* Lista fiksna, detalji zauzimaju ostatak */
+  gap: 30px;
+  align-items: start;
+}
+
+.masterSide {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e0e0e0;
+}
+
+.detailSide {
+  min-height: 500px;
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 60vh;
+}
+
+.emptyState {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 300px;
+  background: #f9f9f9;
+  border: 2px dashed #ddd;
+  border-radius: 12px;
+  color: #999;
+}
+
+/* Prilagođavanje za manje ekrane */
+@media (max-width: 1024px) {
+  .layout {
+    grid-template-columns: 1fr; /* Na tabletima ide jedno ispod drugog */
+  }
+}
