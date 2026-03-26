@@ -68,23 +68,21 @@ export default function Navbar() {
             </NavLink>
           )}
 
-          {can('admin.clients') && (
-            <NavLink
-              to="/clients"
-              className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
-            >
-              Klijenti
-            </NavLink>
-          )}
+          <NavLink
+            to="/clients"
+            className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
+          >
+            Klijenti
+          </NavLink>
 
-          {can('admin.loans') && (
-            <NavLink
-              to="/loans"
-              className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
-            >
-              Krediti
-            </NavLink>
-          )}
+          <NavLink
+            to="/loans"
+            className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
+          >
+            Krediti
+          </NavLink>
+
+
 
           <NavLink
             to="/payments"

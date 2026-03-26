@@ -25,7 +25,6 @@ export default function Loans() {
   const [loadingReqs, setLoadingReqs]   = useState(true);
   const [errorReqs, setErrorReqs]       = useState(null);
   const [actionId, setActionId]         = useState(null);
-  const [actionError, setActionError]   = useState(null);
 
   useEffect(() => {
     loansApi.getRequests()
@@ -83,12 +82,11 @@ export default function Loans() {
 
   async function handleApprove(id) {
     setActionId(id);
-    setActionError(null);
     try {
       await loansApi.approve(id);
       setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'APPROVED' } : r));
-    } catch (err) {
-      setActionError(err?.error ?? err?.message ?? 'Greška pri odobravanju kredita.');
+    } catch {
+      // silently fail — status stays the same
     } finally {
       setActionId(null);
     }
@@ -96,12 +94,11 @@ export default function Loans() {
 
   async function handleReject(id) {
     setActionId(id);
-    setActionError(null);
     try {
       await loansApi.reject(id);
       setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'REJECTED' } : r));
-    } catch (err) {
-      setActionError(err?.error ?? err?.message ?? 'Greška pri odbijanju kredita.');
+    } catch {
+      // silently fail
     } finally {
       setActionId(null);
     }
@@ -171,15 +168,12 @@ export default function Loans() {
           ) : errorReqs ? (
             <div className={styles.center}><Alert type="error" message={errorReqs} /></div>
           ) : (
-            <>
-              {actionError && <div style={{marginBottom: '16px'}}><Alert tip="greska" poruka={actionError} /></div>}
-              <LoanRequestsTable
-                requests={requests}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                actionId={actionId}
-              />
-            </>
+            <LoanRequestsTable
+              requests={requests}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              actionId={actionId}
+            />
           )
         )}
       </div>

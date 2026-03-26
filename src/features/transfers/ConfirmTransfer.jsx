@@ -63,7 +63,7 @@ function VerifyModal({ open, onClose, onConfirm, loading }) {
 export default function ConfirmTransfer() {
     const navigate = useNavigate();
     const { state } = useLocation();
-    const clientId = useAuthStore(s => s.user?.client_id ?? s.user?.id);
+    const clientId = useAuthStore(s => s.user?.id);
 
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
@@ -107,29 +107,7 @@ export default function ConfirmTransfer() {
         ? convertedAmount * (1 - 0.01)
         : numericAmount;
 
-    const handleSendOtp = async () => {
-        setSubmitting(true);
-        setError(null);
-
-        try {
-            await transfersApi.sendOtp(clientId, {
-                from_account: fromNum,
-                to_account:   toNum,
-                amount:       numericAmount,
-            });
-            setShowVerify(true);
-        } catch (err) {
-            const msg =
-                err?.response?.data?.error ||
-                err?.message ||
-                'Greška pri slanju verifikacionog koda.';
-            setError(msg);
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    const handleConfirm = async (code) => {
+    const handleConfirm = async (_code) => {
         setSubmitting(true);
         setError(null);
 
@@ -138,7 +116,6 @@ export default function ConfirmTransfer() {
                 from_account: fromNum,
                 to_account:   toNum,
                 amount:       numericAmount,
-                otp_code:     code,
             });
 
             setShowVerify(false);
@@ -283,7 +260,7 @@ export default function ConfirmTransfer() {
 
                             <button
                                 className={styles.btnPrimary}
-                                onClick={handleSendOtp}
+                                onClick={() => setShowVerify(true)}
                                 disabled={submitting}
                             >
                                 Potvrdi transfer
