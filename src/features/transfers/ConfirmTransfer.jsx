@@ -6,78 +6,21 @@ import { transfersApi } from '../../api/endpoints/transfers';
 import { useAuthStore } from '../../store/authStore';
 import styles from './transfers.module.css';
 
-function VerifyModal({ open, onClose, onConfirm, loading }) {
-    const [code, setCode] = useState('');
-    const [codeError, setCodeError] = useState('');
-
-    useEffect(() => {
-        if (open) { setCode(''); setCodeError(''); }
-    }, [open]);
-
-    if (!open) return null;
-
-    const isValid = /^\d{6}$/.test(code);
-
-    function handleSubmit(e) {
-        e.preventDefault();
-        if (!isValid) { setCodeError('Unesite tačno 6 cifara.'); return; }
-        onConfirm(code);
-    }
-
-    return (
-        <div className={styles.modalOverlay} onClick={onClose}>
-            <div className={styles.modalContent} onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
-                <button className={styles.closeBtn} onClick={onClose}>×</button>
-                <h3 style={{ marginBottom: 8, fontSize: 18, fontWeight: 700, color: 'var(--tx-1)' }}>Verifikacija</h3>
-                <p style={{ fontSize: 13, color: 'var(--tx-2)', marginBottom: 20 }}>
-                    Unesite 6-cifreni verifikacioni kod koji ste primili putem SMS/Email poruke.
-                </p>
-                <form onSubmit={handleSubmit}>
-                    <div style={{ marginBottom: 16 }}>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--tx-3)', marginBottom: 6, textTransform: 'uppercase' }}>
-                            Verifikacioni kod
-                        </label>
-                        <input
-                            type="text"
-                            maxLength={6}
-                            value={code}
-                            onChange={e => { setCode(e.target.value.replace(/\D/g, '')); setCodeError(''); }}
-                            placeholder="000000"
-                            style={{ width: '100%', padding: '10px 14px', fontSize: 22, letterSpacing: 8, textAlign: 'center', border: '1.5px solid var(--border)', borderRadius: 'var(--radius)', fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
-                            autoFocus
-                        />
-                        {codeError && <p style={{ color: 'var(--red)', fontSize: 12, marginTop: 6 }}>{codeError}</p>}
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-                        <button type="button" className={styles.btnSecondary} onClick={onClose} disabled={loading}>Otkaži</button>
-                        <button type="submit" className={styles.btnPrimary} disabled={!isValid || loading}>
-                            {loading ? 'Potvrđivanje...' : 'Potvrdi'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-}
-
 export default function ConfirmTransfer() {
     const navigate = useNavigate();
     const { state } = useLocation();
-    const clientId = useAuthStore(s => s.user?.id);
+    const clientId = useAuthStore(s => s.user?.client_id ?? s.user?.id);
 
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
-    const [showVerify, setShowVerify] = useState(false);
 
-    // ✅ FIX 1: redirect ako nema state
     useEffect(() => {
         if (!state) {
             navigate('/transfers/new');
         }
     }, [state, navigate]);
 
-    // ✅ FIX 2: zaštita od crash-a
     if (!state) return null;
 
     const {
@@ -107,7 +50,7 @@ export default function ConfirmTransfer() {
         ? convertedAmount * (1 - 0.01)
         : numericAmount;
 
-    const handleConfirm = async (_code) => {
+    const handleConfirm = async () => {
         setSubmitting(true);
         setError(null);
 
@@ -118,7 +61,6 @@ export default function ConfirmTransfer() {
                 amount:       numericAmount,
             });
 
-            setShowVerify(false);
             setSuccess(true);
 
             setTimeout(() => {
@@ -130,9 +72,7 @@ export default function ConfirmTransfer() {
                 err?.response?.data?.error ||
                 err?.message ||
                 'Greška pri izvršavanju transfera.';
-
             setError(msg);
-            setShowVerify(false);
         } finally {
             setSubmitting(false);
         }
@@ -260,22 +200,16 @@ export default function ConfirmTransfer() {
 
                             <button
                                 className={styles.btnPrimary}
-                                onClick={() => setShowVerify(true)}
+                                onClick={handleConfirm}
                                 disabled={submitting}
                             >
-                                Potvrdi transfer
+                                {submitting ? 'Izvršavanje...' : 'Potvrdi transfer'}
                             </button>
                         </div>
                     </div>
                 )}
             </main>
 
-            <VerifyModal
-                open={showVerify}
-                onClose={() => setShowVerify(false)}
-                onConfirm={handleConfirm}
-                loading={submitting}
-            />
         </div>
     );
 }

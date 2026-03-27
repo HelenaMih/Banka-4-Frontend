@@ -7,9 +7,10 @@ export const useAuthStore = create(set => ({
 
   setAuth: (user, token, refreshToken) => {
     localStorage.setItem('token', token);
-    localStorage.setItem('refreshToken', refreshToken);
+    if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+    else localStorage.removeItem('refreshToken');
     localStorage.setItem('user', JSON.stringify(user));
-    set({ user, token, refreshToken });
+    set({ user, token, refreshToken: refreshToken ?? null });
   },
 
   logout: () => {
