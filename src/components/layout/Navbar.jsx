@@ -121,6 +121,16 @@ export default function Navbar() {
               Novi račun
             </NavLink>
           )}
+
+          {can('employee.view') && (
+            <NavLink
+              to="/portfolio"
+              className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
+            >
+              Portfolio
+            </NavLink>
+          )}
+
           {hasAdminAccess && (
             <div className={styles.adminDropdownWrap} ref={adminRef}>
               <button

@@ -5,6 +5,56 @@ const delay = ms => new Promise(r => setTimeout(r, ms));
 
 // ─── FAKE DATA ────────────────────────────────────────────────────────────────
 
+// ─── FAKE PORTFOLIO DATA ──────────────────────────────────────────────────────
+
+const FAKE_PORTFOLIO_ASSETS = [
+    { 
+        id: 1, 
+        type: 'Stock', 
+        ticker: 'AAPL', 
+        amount: 100, 
+        price: 150, 
+        profit: 500, 
+        lastModified: '2026-03-21', 
+        status: 'Active' 
+    },
+    { 
+        id: 2, 
+        type: 'Future', 
+        ticker: 'S&P500', 
+        amount: 2, 
+        price: 4000, 
+        profit: -100, 
+        lastModified: '2026-03-21', 
+        status: 'Active' 
+    },
+    { 
+        id: 3, 
+        type: 'Option', 
+        ticker: 'MSFT', 
+        optionType: 'CALL', 
+        strike: 280, 
+        current: 300, 
+        settlement: '2026-04-25', 
+        status: 'ITM' 
+    },
+    { 
+        id: 4, 
+        type: 'Option', 
+        ticker: 'TSLA', 
+        optionType: 'PUT', 
+        strike: 700, 
+        current: 680, 
+        settlement: '2026-03-20', 
+        status: 'OTM' 
+    }
+];
+
+const FAKE_PORTFOLIO_STATS = {
+    taxPaid: 1200,
+    taxUnpaid: 450
+};
+
 const FAKE_EXCHANGE_RATES = [
     { code: 'EUR', flag: 'https://flagcdn.com/w40/eu.webp',  buy: 116.80, mid: 117.15, sell: 117.50 },
     { code: 'USD', flag: 'https://flagcdn.com/w40/us.webp',  buy: 107.20, mid: 107.55, sell: 107.90 },

@@ -24,6 +24,7 @@ import CardsPortal     from './pages/admin/CardsPortal';
 import ClientsPortal   from './pages/admin/ClientsPortal';
 import LoansPortal     from './pages/admin/LoansPortal';
 import ActuariesPage   from './pages/admin/ActuariesPage';
+import PortfolioPage from './pages/admin/PortfolioPage.jsx';
 
 // Client pages
 import ClientDashboard       from './pages/client/ClientDashboard';
@@ -138,6 +139,13 @@ export default function App() {
 
         <Route path="/exchange/rates"      element={<ProtectedRoute><ClientRoute><RatesList /></ClientRoute></ProtectedRoute>} />
         <Route path="/exchange/calculator" element={<ProtectedRoute><ClientRoute><CurrencyCalculator /></ClientRoute></ProtectedRoute>} />
+        <Route path="/portfolio" element={
+        <ProtectedRoute>
+          <EmployeeRoute>
+            <PortfolioPage />
+          </EmployeeRoute>
+        </ProtectedRoute>
+        } />
 
         <Route path="*" element={<NotFound />} />
 

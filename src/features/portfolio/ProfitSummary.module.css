@@ -1,0 +1,39 @@
+.container {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--tx-3);
+  letter-spacing: 0.05em;
+}
+
+.value {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.valueAlt {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--tx-1);
+}
+
+.pos { color: var(--green); }
+.neg { color: var(--red); }

@@ -1,0 +1,119 @@
+.tableWrap { background: white; border-radius: 8px; overflow: hidden; }
+.table { width: 100%; border-collapse: collapse; }
+.table th { text-align: left; padding: 16px; font-size: 11px; color: var(--tx-3); border-bottom: 1px solid var(--border); }
+.table td { padding: 16px; font-size: 14px; border-bottom: 1px solid var(--border); }
+
+.ticker { font-weight: 700; color: var(--tx-1); }
+.pos { color: var(--green); font-weight: 700; }
+.neg { color: var(--red); font-weight: 700; }
+
+/* Bedževi */
+.badge {
+  font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 4px; text-transform: uppercase;
+}
+.stock { background: var(--blue-bg); color: var(--blue); }
+.future { background: var(--purple-bg); color: var(--purple); }
+.itm { background: var(--green-bg); color: var(--green); }
+.otm { background: var(--red-bg); color: var(--red); }
+
+/* Dugmići */
+.actionCell { display: flex; gap: 12px; align-items: center; }
+
+.sellBtn {
+  /* Koristimo !important samo ako tvoj globalni CSS (npr. index.css) 
+     forsira belu boju za sve <button> elemente */
+  background-color: #f39c12 !important; 
+  color: white !important;
+  border: none !important;
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-block;
+  min-width: 60px;
+  text-align: center;
+}
+
+.sellBtn:hover {
+  background-color: #e67e22 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.disabledText {
+  font-size: 11px;
+  color: var(--tx-3);
+  font-style: italic;
+}
+
+/* OTC Stil */
+.otcWrapper { display: flex; gap: 4px; border-left: 1px solid var(--border); padding-left: 12px; }
+.miniInput { width: 60px; padding: 4px; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; }
+.publicBtn { 
+  background: var(--tx-1); color: white; border: none; padding: 4px 8px; 
+  border-radius: 4px; font-size: 10px; cursor: pointer; 
+}
+
+/* --- Dodaci za OptionsSection --- */
+
+.optionType {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--tx-2);
+}
+
+.itm {
+  background-color: rgba(46, 204, 113, 0.15) !important;
+  color: #27ae60 !important;
+}
+
+.otm {
+  background-color: rgba(231, 76, 60, 0.15) !important;
+  color: #c0392b !important;
+}
+
+.exerciseBtn {
+  background-color: #1b4fd8 !important; /* Tvoja plava boja */
+  color: white !important;
+  border: none !important;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.2s;
+}
+
+.exerciseBtn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.exerciseBtn:active {
+  transform: translateY(0);
+}
+
+.naText {
+  font-size: 11px;
+  color: var(--tx-3);
+  font-style: italic;
+  padding-right: 12px;
+}
+
+.expiredRow {
+  background-color: #fbfbfb;
+  opacity: 0.7;
+}
+
+/* Osiguraj da badge ima osnovni stil */
+.badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
