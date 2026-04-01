@@ -53,6 +53,47 @@ export default function CardDetailsPanel({
     setMessage({ type: 'uspeh', text: 'Limiti kartice su uspešno ažurirani.' });
   }
 
+  function ActionButton({ children, onClick, type = 'button', tone = 'neutral' }) {
+    const base = {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      padding: '8px 12px',
+      minWidth: 140,
+      borderRadius: 8,
+      border: '1px solid transparent',
+      background: 'transparent',
+      color: 'var(--text, #111)',
+      cursor: 'pointer',
+      fontSize: 14,
+      lineHeight: 1,
+      boxShadow: 'none',
+      width: 'auto',
+    };
+
+    const tones = {
+      primary: { background: 'var(--primary, #1976d2)', color: '#fff' },
+      danger: { background: 'var(--red, #d32f2f)', color: '#fff' },
+      warning: { background: 'var(--orange, #f57c00)', color: '#fff' },
+      neutral: { background: 'transparent', color: 'var(--text, #111)', border: '1px solid var(--muted, #e0e0e0)' },
+      success: { background: 'var(--green, #388e3c)', color: '#fff' },
+    };
+
+    const style = { ...base, ...(tones[tone] || tones.neutral) };
+
+    return (
+      <button
+        type={type}
+        onClick={onClick}
+        style={style}
+      >
+        <span style={{ flex: '1 1 auto', textAlign: 'left' }}>{children}</span>
+        <span style={{ opacity: 0.9 }}>›</span>
+      </button>
+    );
+  }
+
   return (
     <section className={styles.detailsCardPage}>
       <div className={styles.detailsHeaderTop}>
@@ -113,22 +154,21 @@ export default function CardDetailsPanel({
               </label>
             </div>
 
-            <div className={styles.optionsList}>
-              <button type="submit" className={styles.optionButtonRow}>
-                <span>Promeni limite kartice</span>
-                <span>›</span>
-              </button>
+            {/* Options area: use inline flex-wrap row and standardized buttons so they don't stretch full width */}
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
+              <ActionButton type="submit" tone="primary">
+                Promeni limite kartice
+              </ActionButton>
 
               {allowedActions.map((action) => (
-                <button
+                <ActionButton
                   key={action.key}
                   type="button"
-                  className={`${styles.optionButtonRow} ${action.tone === 'danger' ? styles.optionDanger : ''}`}
+                  tone={action.tone === 'danger' ? 'danger' : action.tone === 'warning' ? 'warning' : 'neutral'}
                   onClick={() => onAction(card.id, action.key)}
                 >
-                  <span>{action.label}</span>
-                  <span>›</span>
-                </button>
+                  {action.label}
+                </ActionButton>
               ))}
             </div>
           </form>
