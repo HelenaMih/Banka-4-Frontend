@@ -49,6 +49,7 @@ import RatesList          from './features/exchange/RatesList.jsx';
 import CurrencyCalculator from './features/exchange/CurrencyCalculator.jsx';
 
 import SupervisorOrdersPage from './pages/supervisor/SupervisorOrdersPage.jsx';
+import { usePermissions } from './hooks/usePermissions.js';
 
 function ProtectedRoute({ children }) {
   const token = useAuthStore(s => s.token);
@@ -76,7 +77,7 @@ function EmployeeRoute({ children }) {
 
 function SupervisorRoute({ children }) {
   // changed: use hook to determine supervisor-like role
-  const { isSupervisor } = usePermissions();
+  const { isSupervisor } = usePermissions;
   if (!isSupervisor) return <Navigate to="/dashboard" replace />;
   return children;
 }
