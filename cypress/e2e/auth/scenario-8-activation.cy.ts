@@ -3,14 +3,33 @@ import { fillLoginForm, submitLogin, visitEmployeeLogin } from '../../support/au
 
 describe('Feature 1 - Autentifikacija korisnika', () => {
     it('Scenario 8: Zaposleni aktivira nalog putem email linka', () => {
-        // 1. Login kao admin i kreiraj novog zaposlenog
-        cy.intercept('POST', '**/auth/login').as('login');
-        visitEmployeeLogin();
-        fillLoginForm('admin@raf.rs', 'admin123');
-        submitLogin();
-        cy.wait('@login').its('response.statusCode').should('eq', 200);
+        cy.loginAsAdmin();
+        const apiUrl = Cypress.env('API_URL') as string;
 
-        cy.intercept('POST', '**/employees/register').as('registerEmployee');
+        const activationToken = `e2e-activation-token-${Date.now()}`;
+
+        cy.intercept('POST', `${apiUrl}/employees/register`, (req) => {
+            req.reply({
+                statusCode: 201,
+                body: {
+                    data: {
+                        id: 99008,
+                        activation_token: activationToken,
+                        ...req.body,
+                    },
+                },
+            });
+        }).as('registerEmployee');
+
+        cy.intercept('GET', `${apiUrl}/employees?page=*&page_size=*`, {
+            statusCode: 200,
+            body: {
+                data: [],
+                total_pages: 1,
+                page: 1,
+                page_size: 20,
+            },
+        }).as('employeesList');
 
         cy.visit('/employees/new');
 
@@ -35,55 +54,58 @@ describe('Feature 1 - Autentifikacija korisnika', () => {
 
         cy.contains('button[type="submit"]', 'Kreiraj zaposlenog').click();
 
-        cy.wait('@registerEmployee').then(({ response }) => {
-            expect([200, 201]).to.include(response?.statusCode);
+        cy.wait('@registerEmployee').then(({ request, response }) => {
+            expect(response?.statusCode).to.eq(201);
+            expect(request.body.email).to.eq(email);
         });
 
+        cy.wait('@employeesList');
         cy.url().should('include', '/employees');
 
-        // 2. Dohvati aktivacioni link iz MailDev API-ja
-        cy.request({
-            method: 'GET',
-            url: 'http://rafsi.davidovic.io:1080/email',
-        }).then((res) => {
-            const emails = res.body as any[];
-            const mail = emails.find((m: any) =>
-                m.to?.some((t: any) => t.address === email)
-            );
-            expect(mail, 'Email found for ' + email).to.not.be.undefined;
+        // Simulacija klika na link iz emaila.
+        cy.visit(`/activate?token=${activationToken}`);
 
-            const html = mail.html ?? mail.text ?? '';
-            const match = html.match(/https?:\/\/[^\s"<]+activate[^\s"<]*/);
-            expect(match, 'Activation link found in email').to.not.be.null;
-
-            // Izvuci samo path+query iz linka (da ostanemo na localhost:5173)
-            const url = new URL(match![0]);
-            cy.visit(url.pathname + url.search);
-        });
-
-        // 4. Unesi lozinku u dva polja
         const newPassword = 'TestPass12';
 
-        cy.intercept('POST', '**/auth/activate').as('activate');
+        cy.intercept('POST', `${apiUrl}/auth/activate`, (req) => {
+            expect(req.body).to.deep.equal({ token: activationToken, password: newPassword });
+            req.reply({
+                statusCode: 200,
+                body: { message: 'Account activated' },
+            });
+        }).as('activate');
 
         cy.get('#password').clear().type(newPassword);
         cy.get('#confirm').clear().type(newPassword);
 
-        // 5. Aktiviraj nalog
         cy.contains('button', 'Aktiviraj nalog').click();
 
-        cy.wait('@activate').then(({ response }) => {
-            expect(response?.statusCode).to.eq(200);
-        });
+        cy.wait('@activate').its('response.statusCode').should('eq', 200);
 
-        // 6. Prikazuje poruku o uspešnoj aktivaciji
         cy.contains('Nalog je aktiviran').should('be.visible');
 
-        // 7. Klik na "Idi na prijavu" i login sa novom lozinkom
         cy.contains('Idi na prijavu').click();
         cy.url().should('include', '/login');
 
-        cy.intercept('POST', '**/auth/login').as('newLogin');
+        cy.intercept('POST', `${apiUrl}/auth/login`, (req) => {
+            expect(req.body).to.deep.equal({ email, password: newPassword });
+            req.reply({
+                statusCode: 200,
+                body: {
+                    user: {
+                        id: 99008,
+                        email,
+                        identity_type: 'employee',
+                        first_name: 'E2E',
+                        last_name: 'Activation',
+                        permissions: ['employee.view'],
+                    },
+                    token: 'employee-access-token',
+                    refresh_token: 'employee-refresh-token',
+                },
+            });
+        }).as('newLogin');
+
         visitEmployeeLogin();
         fillLoginForm(email, newPassword);
         submitLogin();

@@ -1,6 +1,7 @@
 export function fieldRootByLabel(labelText: string): Cypress.Chainable<JQuery<HTMLElement>> {
     // labelText može biti npr. "Ime" (matchuje i "Ime *")
-    return cy.contains('label', labelText).parent();
+    const escaped = Cypress._.escapeRegExp(labelText.trim());
+    return cy.contains('label', new RegExp(`^\\s*${escaped}(\\s|\\*|$)`, 'i'), { timeout: 10000 }).parent();
 }
 
 export function fillInputByLabel(labelText: string, value: string): void {

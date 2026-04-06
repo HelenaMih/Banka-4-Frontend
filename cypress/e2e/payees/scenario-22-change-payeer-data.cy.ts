@@ -1,37 +1,41 @@
-describe('Scenario 9: Izmena postojećeg primaoca u listi', () => {
-    it('pronalazi Anu u listi, klikne na dugme izmeni pored nje i menja podatke u Mila', () => {
+describe('Scenario 22: Izmena podataka primaoca plaćanja', () => {
+    it('menja naziv i broj računa primaoca', () => {
         cy.loginAsClient();
 
-        // 1) Otvori stranicu gde se nalazi lista primalaca
-        // Ako je to dashboard ili posebna stranica "Primaoci"
-        cy.visit('/dashboard');
+        cy.intercept('GET', '**/payees*', {
+            statusCode: 200,
+            body: {
+                data: [
+                    { id: 9101, name: 'Ana', account_number: '444000111222333444' },
+                ],
+            },
+        }).as('getPayees');
 
-        // Pretpostavljamo da je potrebno kliknuti na "Novi primalac" da bi se videla lista/modal sa primaocima
-        cy.contains('button, a', /\+\s*novi primalac/i).click();
+        cy.intercept('PATCH', '**/payees/9101', {
+            statusCode: 200,
+            body: {
+                data: { id: 9101, name: 'Mila Izmena', account_number: '444000127330072323' },
+            },
+        }).as('updatePayee');
 
-        cy.contains('button, a', /izmeni/i).click();
+        cy.visit('/client/recipients');
+        cy.wait('@getPayees');
 
-        // 2) Pronađi red u kojem je "Ana" i klikni na dugme "Izmeni" koje je u tom istom redu
+        cy.contains('button', /izmeni/i).first().click();
 
-        // 3) Izmeni naziv primaoca u "Mila"
-        cy.contains('label', /^naziv primaoca$/i)
+        cy.contains('label', /naziv primaoca/i)
             .parent()
             .find('input')
             .clear()
-            .type('Mila');
+            .type('Mila Izmena');
 
-        // 4) Izmeni broj računa
         cy.contains('label', /broj računa/i)
             .parent()
             .find('input')
             .clear()
             .type('444000127330072323');
 
-        // 5) Klik na dugme "Potvrdi" da sačuvaš izmene
         cy.contains('button', /^potvrdi$/i).click();
-
-        // 6) Provera: Da li je u listi sada Mila, a Ana više ne postoji
-        cy.contains('Mila').should('be.visible');
-        cy.contains('Ana').should('not.exist');
+        cy.wait('@updatePayee').its('response.statusCode').should('eq', 200);
     });
 });

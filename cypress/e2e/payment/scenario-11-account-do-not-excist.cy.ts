@@ -3,7 +3,33 @@ describe('Scenario 11: Neuspešno plaćanje zbog nepostojećeg računa', () => {
     it('prikazuje poruku, ostaje na Novo plaćanje i prazni polje računa primaoca', () => {
         cy.loginAsClient();
 
+        cy.intercept('GET', '**/clients/*/accounts*', {
+            statusCode: 200,
+            body: {
+                data: [
+                    {
+                        account_number: '265-1111111111111-11',
+                        name: 'Tekuci RSD',
+                        currency: 'RSD',
+                        balance: 10000,
+                    },
+                ],
+            },
+        }).as('getAccounts');
+
+        cy.intercept('GET', '**/payees*', {
+            statusCode: 200,
+            body: { data: [] },
+        }).as('getPayees');
+
+        cy.intercept('POST', '**/clients/*/payments', {
+            statusCode: 404,
+            body: { message: 'recipient account not found' },
+        }).as('createPayment');
+
         cy.visit('/client/payments/new');
+        cy.wait('@getAccounts');
+        cy.wait('@getPayees');
         cy.location('pathname').should('eq', '/client/payments/new');
 
         const nonexistent = '999000000000000000'; // 18 cifara, ali ne postoji u sistemu
@@ -30,13 +56,12 @@ describe('Scenario 11: Neuspešno plaćanje zbog nepostojećeg računa', () => {
             cy.get('button[type="submit"]').click();
         });
 
-        // Poruka
-     //   cy.contains('Uneti račun ne postoji', { timeout: 20000 }).should('be.visible');
+                cy.wait('@createPayment').its('response.statusCode').should('eq', 404);
 
-        // Ostaje na istoj stranici
-      //  cy.location('pathname').should('eq', '/client/payments/new');
+                cy.contains('Uneti račun ne postoji.', { timeout: 20000 }).should('be.visible');
 
-        // Polje za unos računa primaoca se prazni
-        //cy.get('@recipientAccountInput').should('have.value', '');
+                cy.location('pathname').should('eq', '/client/payments/new');
+
+                cy.get('@recipientAccountInput').should('have.value', '');
     });
 });

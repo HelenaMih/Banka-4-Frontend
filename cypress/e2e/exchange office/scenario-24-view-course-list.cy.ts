@@ -1,30 +1,34 @@
 describe('Scenario 24: Pregled kursne liste', () => {
     it('prikazuje kursnu listu sa svim podržanim valutama i odnosom prema RSD', () => {
-        // Given: klijent je ulogovan u aplikaciju
         cy.loginAsClient();
-        cy.visit('/');
 
-        // When: otvori sekciju “Menjačnica”
-        cy.get('nav, .navbar, .menu')
-            .contains(/menjačnica|exchange/i)
-            .click();
+        cy.intercept('GET', '**/exchange/rates*', {
+            statusCode: 200,
+            body: {
+                rates: [
+                    { currency: 'EUR', buy_rate: 116.2, sell_rate: 117.2 },
+                    { currency: 'CHF', buy_rate: 121.1, sell_rate: 122.1 },
+                    { currency: 'USD', buy_rate: 108.9, sell_rate: 109.9 },
+                    { currency: 'GBP', buy_rate: 136.7, sell_rate: 137.7 },
+                    { currency: 'JPY', buy_rate: 0.71, sell_rate: 0.73 },
+                    { currency: 'CAD', buy_rate: 79.2, sell_rate: 80.2 },
+                    { currency: 'AUD', buy_rate: 72.8, sell_rate: 73.8 },
+                ],
+            },
+        }).as('getRates');
 
-        // And: izabere opciju “Kursna lista”
-        cy.contains(/kursna lista|exchange rates/i)
-            .click();
+        cy.visit('/client/exchange');
+        cy.wait('@getRates').its('response.statusCode').should('eq', 200);
+        cy.contains('h2', /kursna lista/i).should('be.visible');
 
-        // Provera rute (npr. /exchange/rates)
-
-        // Then: sistem prikazuje trenutne kurseve za podržane valute
-        // Proveravamo da li se u tabeli/listi nalaze sve tražene skraćenice valuta
         const currencies = ['EUR', 'CHF', 'USD', 'GBP', 'JPY', 'CAD', 'AUD'];
 
         currencies.forEach((currency) => {
-            cy.contains('table, .rates-list', currency)
-                .should('be.visible');
+            cy.contains('tbody tr', currency)
+                .should('be.visible')
+                .within(() => {
+                    cy.contains(/RSD/i).should('be.visible');
+                });
         });
-
-        // And: prikazuje odnos svake valute prema RSD
-        // Proveravamo da li se negde u zaglavlju ili pored valuta pominje RSD
     });
 });

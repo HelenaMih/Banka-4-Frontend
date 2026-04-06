@@ -1,34 +1,41 @@
-// cypress/e2e/kt2/scenario-9-successful-payment-real.cy.ts
-describe('Scenario 9: Uspešno plaćanje drugom klijentu', () => {
-    it('dodaje primaoca sa dashboarda i izvršava plaćanje', () => {
+describe('Scenario 21: Dodavanje novog primaoca plaćanja', () => {
+    it('dodaje primaoca i prikazuje ga u listi', () => {
         cy.loginAsClient();
 
-        // 1) Otvori dashboard
-        cy.visit('/dashboard');
+        cy.intercept('GET', '**/payees*', {
+            statusCode: 200,
+            body: { data: [] },
+        }).as('getPayees');
 
-        // 2) Klik "+ Novi primalac"
-        cy.contains('button, a', /\+\s*novi primalac/i).click();
+        cy.intercept('POST', '**/payees', {
+            statusCode: 201,
+            body: {
+                data: {
+                    id: 9001,
+                    name: 'Milan Test',
+                    account_number: '444000123456789123',
+                },
+            },
+        }).as('createPayee');
 
-        // 3) Na stranici/modalu gde je "Dodaj novog primaoca"
-        // Unesi ime: Ana
-        cy.contains('button, a', /\+\s*dodaj novog primaoca/i).click();
+        cy.visit('/client/recipients');
+        cy.wait('@getPayees');
 
-        cy.contains('label', /^naziv primaoca$/i)
+        cy.contains('button', /dodaj novog primaoca/i).click();
+
+        cy.contains('label', /naziv primaoca/i)
             .parent()
             .find('input')
             .clear()
-            .type('Ana');
+            .type('Milan Test');
 
-        // Unesi broj računa primaoca: 444000116607821321
         cy.contains('label', /broj računa/i)
             .parent()
             .find('input')
             .clear()
-            .type('444000116607821321');
+            .type('444000123456789123');
 
-        // Klik "Dodaj novog primaoca"
-        // Klik na dugme "Potvrdi" (na formi)
         cy.contains('button', /^potvrdi$/i).click();
-
+        cy.wait('@createPayee').its('response.statusCode').should('eq', 201);
     });
 });

@@ -1,58 +1,59 @@
-describe('Scenario 16: Pregled istorije plaćanja - Menjačnica tab', () => {
-    it('naviguje se na plaćanja, prebacuje na karticu menjačnica i filtrira', () => {
-        // Given: klijent je ulogovan u aplikaciju
+describe('Scenario 19: Pregled istorije transfera', () => {
+    it('prikazuje listu transfera sortiranu od najnovijeg ka najstarijem', () => {
         cy.loginAsClient();
-        cy.visit('/');
+        cy.intercept('GET', '**/clients/*/transfers*', {
+            statusCode: 200,
+            body: {
+                data: [
+                    {
+                        transfer_id: 1,
+                        created_at: '2026-03-01T10:00:00Z',
+                        from_account_number: '265-1111111111111-11',
+                        to_account_number: '265-2222222222222-22',
+                        initial_amount: 1000,
+                        final_amount: 1000,
+                        commission: 0,
+                    },
+                    {
+                        transfer_id: 2,
+                        created_at: '2026-03-03T12:30:00Z',
+                        from_account_number: '265-1111111111111-11',
+                        to_account_number: '265-3333333333333-33',
+                        initial_amount: 2000,
+                        final_amount: 1980,
+                        commission: 20,
+                    },
+                    {
+                        transfer_id: 3,
+                        created_at: '2026-03-02T09:15:00Z',
+                        from_account_number: '265-1111111111111-11',
+                        to_account_number: '265-4444444444444-44',
+                        initial_amount: 1500,
+                        final_amount: 1500,
+                        commission: 0,
+                    },
+                ],
+                total_pages: 1,
+            },
+        }).as('getTransferHistory');
 
-        // When: otvori sekciju “Plaćanja” preko Navbara
-        cy.get('nav, .navbar, .menu')
-            .contains(/plaćanja/i)
-            .click();
+        cy.visit('/transfers/history');
+        cy.wait('@getTransferHistory').its('response.statusCode').should('eq', 200);
 
-        cy.contains(/pregled plaćanja/i)
-            .click();
+        cy.contains(/istorija transfera/i).should('be.visible');
+        cy.get('table tbody tr').should('have.length', 3);
 
-        // --- KLJUČNI KORAK: Prelazak na karticu (tab) Menjačnica ---
-        // Tražimo tab/dugme unutar stranice koji služi za prebacivanje na menjačnicu
-        cy.get('.tabs, .nav-tabs, div') // Selektor za kontejner tabova
-            .contains(/menjačnica|exchange/i)
-            .click();
-
-        // Provera da je tab postao aktivan (opciono, npr. klasa 'active')
-        cy.contains(/menjačnica/i).should('be.visible');
-
-        // Then: prikazuje se lista svih izvršenih plaćanja/konverzija u menjačnici
-        cy.get('table, .payment-list').should('be.visible');
-
-        // And: moguće je filtriranje po datumu, iznosu i statusu transakcije
-
-        // --- FILTRIRANJE PO DATUMU ---
-        cy.contains('label', /datum|period/i)
-            .parent()
-            .find('input[type="date"]')
-            .first()
-            .type('2026-03-30');
-
-        // --- FILTRIRANJE PO IZNOSU ---
-        cy.contains('label', /iznos/i)
-            .parent()
-            .find('input[type="number"]')
-            .clear()
-            .type('10');
-
-        // --- FILTRIRANJE PO STATUSU ---
-        cy.contains('label', /status/i)
-            .parent()
-            .find('select')
-            .as('statusSelect');
-
-        cy.get('@statusSelect').find('option').then(($opts) => {
-            expect($opts.length, 'Očekujem opcije za status').to.be.greaterThan(1);
-            const statusValue = $opts[2].getAttribute('value');
-            cy.get('@statusSelect').select(statusValue!);
+        // Najnoviji transfer (03.03.2026) mora biti prvi u listi.
+        cy.get('table tbody tr').first().within(() => {
+            cy.contains('03.03.2026').should('be.visible');
+            cy.contains('+1.980,00').should('be.visible');
         });
 
-        // Klik na dugme za primenu filtera
+        // Najstariji (01.03.2026) mora biti poslednji.
+        cy.get('table tbody tr').last().within(() => {
+            cy.contains('01.03.2026').should('be.visible');
+            cy.contains('+1.000,00').should('be.visible');
+        });
 
     });
 });

@@ -1,53 +1,52 @@
 describe('Scenario 25: Provera ekvivalentnosti valute (Kalkulator)', () => {
     it('izračunava iznos konverzije bez izvršavanja transakcije', () => {
-        // Given: klijent je ulogovan i na stranici “Menjačnica”
         cy.loginAsClient();
-        cy.visit('/');
 
-        // Navigacija kroz Navbar
-        cy.get('nav, .navbar, .menu')
-            .contains(/menjačnica|exchange/i)
-            .click();
+        cy.intercept('GET', '**/exchange/rates*', {
+            statusCode: 200,
+            body: {
+                rates: [
+                    { currency: 'EUR', buy_rate: 79, sell_rate: 80 },
+                    { currency: 'USD', buy_rate: 120, sell_rate: 121 },
+                    { currency: 'CHF', buy_rate: 121, sell_rate: 122 },
+                    { currency: 'GBP', buy_rate: 136, sell_rate: 137 },
+                    { currency: 'JPY', buy_rate: 0.71, sell_rate: 0.73 },
+                    { currency: 'CAD', buy_rate: 79.2, sell_rate: 80.2 },
+                    { currency: 'AUD', buy_rate: 72.8, sell_rate: 73.8 },
+                ],
+            },
+        }).as('getRates');
 
-        // Provera da smo na pravoj stranici (obično /exchange ili /exchange/calculator)
-        cy.location('pathname').should('include', 'exchange');
+        cy.visit('/client/exchange');
+        cy.wait('@getRates').its('response.statusCode').should('eq', 200);
 
-        // When: unese iznos u jednoj valuti
+        cy.location('pathname').should('eq', '/client/exchange');
+        cy.contains('h2', /kalkulator valuta/i).should('be.visible').parent().as('calculatorCard');
+
         const testAmount = '100';
-        cy.contains('label', /iznos/i)
-            .parent()
-            .find('input[type="number"]')
-            .clear()
-            .type(testAmount);
+        cy.get('@calculatorCard').within(() => {
+            cy.contains('label', /iznos/i)
+                .parent()
+                .find('input[type="number"]')
+                .focus()
+                .type('{selectall}100');
 
-        // And: izabere prvu valutu (Iz valute)
-        cy.contains('label', /iz valute|prodajem/i)
-            .parent()
-            .find('select')
-            .select('USD');
+            cy.contains('label', /iz valute/i)
+                .parent()
+                .find('select')
+                .select('USD');
 
-        // And: izabere drugu valutu u koju želi konverziju (U valutu)
-        cy.contains('label', /u valutu|kupujem/i)
-            .parent()
-            .find('select')
-            .select('JPY');
+            cy.contains('label', /u valutu/i)
+                .parent()
+                .find('select')
+                .select('EUR');
 
-        // Then: sistem izračunava ekvivalentnu vrednost prema trenutnom kursu
-        // Pretpostavka: Rezultat se pojavljuje u polju koje je "read-only" ili u posebnom tekstualnom elementu
-        // Čekamo da se vrednost pojavi (X RSD)
-        cy.contains(/rezultat|dobijate|ekvivalentno/i)
-            .parent()
-            .as('resultContainer');
-
-        cy.get('@resultContainer').then(($el) => {
-            const text = $el.text();
-            // Proveravamo da li rezultat sadrži broj (iznos) i da nije prazan
-            expect(text).to.match(/\d+/);
+            // Formula UI-a: amount * buy(from) / sell(to) => 100 * 120 / 80 = 150
+            cy.contains(/150[,.]00\s*EUR/i).should('be.visible');
         });
 
-        // And: prikazuje rezultat bez izvršavanja transakcije
-        // Proveravamo da nismo preusmereni na "Success" stranicu i da je dugme "Potvrdi" i dalje tu
-
-        // Dodatna provera: Kurs bi trebao biti vidljiv tokom kalkulacije
+        // Kalkulator samo prikazuje rezultat, bez izvršavanja transakcije.
+        cy.location('pathname').should('eq', '/client/exchange');
+        cy.contains(/transfer uspešno|uspešno izvršen|nalog je uspešno poslat/i).should('not.exist');
     });
 });

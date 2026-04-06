@@ -1,37 +1,46 @@
 describe('Scenario 30: Blokiranje kartice od strane klijenta', () => {
     it('uloguje se kao Ana, pronalazi aktivnu karticu i blokira je', () => {
-        // 1) Login kao Ana
         cy.loginAsClientAna();
-        cy.visit('/dashboard');
 
-        // 2) Odlazak na sekciju "Kartice"
-        cy.get('nav, .navbar')
-            .contains(/kartice|cards/i)
-            .should('be.visible')
-            .click();
+        cy.intercept('GET', '**/clients/*/accounts*', {
+            statusCode: 200,
+            body: {
+                data: [
+                    { account_number: '265-1234567890123-45', name: 'Tekuci', currency: 'RSD' },
+                ],
+            },
+        }).as('getAccounts');
 
-        // Provera da li smo na stranici sa karticama
+        cy.intercept('GET', '**/clients/*/accounts/265-1234567890123-45/cards*', {
+            statusCode: 200,
+            body: {
+                data: [
+                    {
+                        id: 7001,
+                        card_number: '4000123412341234',
+                        card_type: 'DEBIT',
+                        status: 'ACTIVE',
+                        expiration_date: '2028-08-01T00:00:00Z',
+                    },
+                ],
+            },
+        }).as('getCards');
+
+        cy.intercept('PUT', '**/cards/7001/block', {
+            statusCode: 200,
+            body: { message: 'Kartica je blokirana' },
+        }).as('blockCard');
+
+        cy.visit('/client/cards');
+        cy.wait('@getAccounts');
+        cy.wait('@getCards');
         cy.location('pathname').should('include', '/cards');
 
-        // 3) Klik na dugme
-        // Umesto samo as('resultContainer'), dodajemo .click()
-        cy.contains(/Blokiraj karticu/i)
+        cy.contains('button', /blokiraj karticu/i, { timeout: 10000 })
             .should('be.visible')
-            .click({ force: true }); // force: true je ovde ključan zbog tvog overlay-a
+            .click({ force: true });
 
-        // 4) Potvrda u malom meniju (ako se pojavi "Are you sure?")
-        // Pošto ti uvek izađe onaj mali meni, moramo kliknuti i u njemu
-        cy.get('body').then(($body) => {
-            // Ako se pojavi dugme "Blokiraj" u tom novom malom meniju
-            if ($body.find('button:contains("Blokiraj")').length > 0) {
-                cy.get('button')
-                    .contains(/blokiraj/i)
-                    .last() // Uzimamo ono iz menija, ne iz tabele
-                    .click({ force: true });
-            }
-        });
-
-        // 5) Provera da je status promenjen
-        cy.contains(/blokirana/i, { timeout: 10000 }).should('be.visible');
+        cy.wait('@blockCard').its('response.statusCode').should('eq', 200);
+        cy.contains(/uspešno izvr.ena|blokiraj|blokirana/i, { timeout: 10000 }).should('be.visible');
     });
 });

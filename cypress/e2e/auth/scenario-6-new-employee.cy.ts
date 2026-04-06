@@ -1,18 +1,33 @@
-import { visitEmployeeLogin, fillLoginForm, submitLogin,} from '../../support/authHelpers';
 import { fillInputByLabel, fillDateByLabel, selectByLabel,} from '../../support/formByLable';
 
 
 describe('Feature: Kreiranje i aktivacija zaposlenog', () => {
     it('Scenario 6: Admin kreira novog zaposlenog', () => {
-        // login
-        cy.intercept('POST', '**/auth/login').as('login');
-        visitEmployeeLogin();
-        fillLoginForm('admin@raf.rs', 'admin123');
-        submitLogin();
-        cy.wait('@login').its('response.statusCode').should('eq', 200);
+        cy.loginAsAdmin();
+        const apiUrl = Cypress.env('API_URL') as string;
 
-        // intercept BEFORE submit
-        cy.intercept('POST', '**/employees/register').as('registerEmployee');
+        cy.intercept('POST', `${apiUrl}/employees/register`, (req) => {
+            req.reply({
+                statusCode: 201,
+                body: {
+                    data: {
+                        id: 99006,
+                        ...req.body,
+                    },
+                    message: 'Employee created successfully',
+                },
+            });
+        }).as('registerEmployee');
+
+        cy.intercept('GET', `${apiUrl}/employees?page=*&page_size=*`, {
+            statusCode: 200,
+            body: {
+                data: [],
+                total_pages: 1,
+                page: 1,
+                page_size: 20,
+            },
+        }).as('employeesList');
 
         cy.visit('/employees/new');
 
@@ -30,19 +45,16 @@ describe('Feature: Kreiranje i aktivacija zaposlenog', () => {
         fillInputByLabel('ID Pozicije', '1');
         fillInputByLabel('Departman', 'IT');
 
-        // permissions: čekiraj "employee.view"
         cy.contains('label', 'employee.view')
             .find('input[type="checkbox"]')
             .check({ force: true });
 
-        // Username (može i auto-gen, ali required je u validaciji)
-        // posle Ime+Prezime auto-gen je "eemployee", ali mi možemo da ga postavimo eksplicitno:
         fillInputByLabel('Username', `e2e${ts}`);
 
         cy.contains('button[type="submit"]', 'Kreiraj zaposlenog').click();
 
         cy.wait('@registerEmployee').then(({ request, response }) => {
-            expect([200, 201]).to.include(response?.statusCode);
+            expect(response?.statusCode).to.eq(201);
 
             expect(request.body).to.include({
                 active: true,
@@ -57,14 +69,11 @@ describe('Feature: Kreiranje i aktivacija zaposlenog', () => {
                 username: `e2e${ts}`,
             });
 
-            // date_of_birth formatira u handleSubmit:
             expect(request.body.date_of_birth).to.eq('1999-01-01T00:00:00Z');
-
-            // permissions array
             expect(request.body.permissions).to.deep.equal(['employee.view']);
         });
 
-        // nakon uspeha navigira na /employees
+        cy.wait('@employeesList');
         cy.url().should('include', '/employees');
     });
 });

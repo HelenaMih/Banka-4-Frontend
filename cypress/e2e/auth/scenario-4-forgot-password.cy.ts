@@ -2,22 +2,29 @@ import { visitEmployeeLogin } from '../../support/authHelpers';
 
 describe('Feature 1 - Autentifikacija korisnika', () => {
     it('Scenario 4: Zaboravljena lozinka - slanje zahteva', () => {
-        cy.intercept('POST', '**/api/auth/forgot-password').as('forgot');
+        cy.intercept('POST', '**/auth/forgot-password', (req) => {
+            expect(req.body).to.deep.equal({ email: 'admin@raf.rs' });
+            req.reply({
+                statusCode: 200,
+                body: { message: 'Reset link sent' },
+            });
+        }).as('forgot');
 
         visitEmployeeLogin();
 
-        // Klik na "Zaboravljena lozinka" (prilagodi ako je drugačiji tekst)
-        cy.contains(/zaborav|forgot/i).click();
+        cy.contains('a', /zaboravili ste lozinku\?/i).click();
 
-        // Email polje (prilagodi selektor ako nije ovo)
-        cy.get('input[type="email"], #email').clear().type('admin@raf.rs');
+        cy.location('pathname').should('eq', '/reset-password');
 
-        // Submit dugme (prilagodi tekst ako je drugačiji)
-        cy.contains('button', /pošalji|send/i).click();
+        cy.get('#email').should('be.visible');
+        cy.get('#email').clear();
+        cy.get('#email').type('admin@raf.rs');
 
-        cy.wait('@forgot').then(({ response }) => {
-            expect([200, 204]).to.include(response?.statusCode);
-        });
+        cy.contains('button', /pošalji link za resetovanje/i).click();
+
+        cy.wait('@forgot').its('response.statusCode').should('eq', 200);
+
+        cy.contains(/email je poslat!/i).should('be.visible');
 
         cy.window().then((win) => {
             expect(win.localStorage.getItem('token')).to.be.null;

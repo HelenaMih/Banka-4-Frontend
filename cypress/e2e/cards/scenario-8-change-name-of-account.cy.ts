@@ -1,28 +1,58 @@
-// cypress/e2e/cards/scenario-7-account-details-real.cy.ts
-describe('Scenario 7: Pregled detalja računa', () => {
-    it('klik na Detalji prikazuje broj računa, stanje, raspoloživo stanje i tip računa', () => {
+describe('Scenario 8: Promena naziva računa', () => {
+    it('menja naziv računa i prikazuje potvrdu o uspešnoj promeni', () => {
         cy.loginAsClient();
-        cy.visit('/client/accounts');
 
-        // 1) Odaberi neki račun (prvi u listi)
-        // Ako su računi kao kartice, obično je ceo blok klikabilan.
-        cy.contains(/moji računi/i).should('be.visible');
+        cy.intercept('GET', '**/clients/*/accounts*', {
+            statusCode: 200,
+            body: {
+                data: [
+                    {
+                        account_number: '265-1234567890123-45',
+                        name: 'Moj racun',
+                        currency: 'RSD',
+                        balance: 50000,
+                        reserved_funds: 0,
+                        status: 'ACTIVE',
+                    },
+                ],
+            },
+        }).as('getAccounts');
 
-        // Probaj da nađeš prvi "račun" blok tako što uzmeš prvi element koji sadrži maskiran broj ili naziv.
-        // Ako ovo ne pogodi vaš DOM, javi kako se zove klasa za karticu/row.
-        cy.get('body').then(() => {
-            // klikni na prvi prikazani račun po dugmetu "Detalji" (najsigurnije)
-            cy.contains('button, a', /^Detalji$/i)
-                .first()
-                .closest('div') // wrapper računa
-                .as('selectedAccount');
+        cy.intercept('GET', '**/clients/*/accounts/*/payments*', {
+            statusCode: 200,
+            body: { data: [] },
         });
 
-        // 2) Klik na Detalji za taj račun
-        cy.get('@selectedAccount')
-            .contains('button, a', /^Detalji$/i)
-            .click();
+        const newName = `Naziv ${Date.now()}`;
+        cy.intercept('PUT', '**/clients/*/accounts/*/name', (req) => {
+            expect(req.body).to.deep.equal({ name: newName });
+            req.reply({
+                statusCode: 200,
+                body: { message: 'Naziv računa je uspešno promenjen.' },
+            });
+        }).as('renameAccount');
 
+        cy.visit('/client/accounts');
+        cy.wait('@getAccounts').its('response.statusCode').should('eq', 200);
 
+        cy.contains('button', /^Detalji$/i).first().click();
+        cy.contains(/detalji računa/i).should('be.visible');
+
+        cy.contains('button', /promena naziva računa/i).click();
+        cy.contains(/promena naziva računa/i).should('be.visible');
+
+        cy.contains('label', /novo ime računa/i)
+            .parent()
+            .find('input')
+            .clear()
+            .type(newName);
+
+        cy.contains('button', /^sačuvaj$/i).click();
+
+        cy.wait('@renameAccount').its('response.statusCode').should('eq', 200);
+        cy.contains(/naziv računa je uspešno promenjen!/i).should('be.visible');
+
+        cy.wait(1700);
+        cy.contains(newName).should('be.visible');
     });
 });

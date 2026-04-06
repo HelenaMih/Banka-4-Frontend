@@ -1,6 +1,3 @@
-import './commands';
-
-
 // cypress/support/index.d.ts
 declare global {
     namespace Cypress {
@@ -13,72 +10,63 @@ declare global {
 }
 export {};
 
-Cypress.Commands.add('loginAsAdmin', () => {
+type LoginPayload = {
+    user: Record<string, unknown>;
+    token: string;
+    refresh_token?: string;
+};
+
+function requireApiUrl() {
     const apiUrl = Cypress.env('API_URL');
     if (!apiUrl) throw new Error('Missing Cypress env API_URL');
+    return apiUrl as string;
+}
 
-    cy.session('admin', () => {
-        cy.request('POST', `${apiUrl}/auth/login`, {
-            email: 'admin@raf.rs',
-            password: 'admin123',
-        }).then((res) => {
-            expect(res.status).to.eq(200);
+function setupSession(sessionKey: string, email: string, password: string) {
+    const apiUrl = requireApiUrl();
 
-            const { user, token, refresh_token } = res.body;
+    cy.session(
+        sessionKey,
+        () => {
+            cy.request<LoginPayload>('POST', `${apiUrl}/auth/login`, {
+                email,
+                password,
+            }).then((res) => {
+                expect(res.status).to.eq(200);
+                const { user, token, refresh_token } = res.body;
 
-            window.localStorage.setItem('token', token);
-            if (refresh_token) window.localStorage.setItem('refreshToken', refresh_token);
-            else window.localStorage.removeItem('refreshToken');
+                cy.visit('/login', {
+                    onBeforeLoad(win) {
+                        win.localStorage.setItem('token', token);
+                        if (refresh_token) win.localStorage.setItem('refreshToken', refresh_token);
+                        else win.localStorage.removeItem('refreshToken');
+                        win.localStorage.setItem('user', JSON.stringify(user));
+                    },
+                });
+            });
+        },
+        {
+            cacheAcrossSpecs: true,
+            validate() {
+                cy.window().then((win) => {
+                    const token = win.localStorage.getItem('token');
+                    const user = win.localStorage.getItem('user');
+                    expect(token, 'session token').to.be.a('string').and.not.be.empty;
+                    expect(user, 'session user').to.be.a('string').and.not.be.empty;
+                });
+            },
+        }
+    );
+}
 
-            window.localStorage.setItem('user', JSON.stringify(user));
-        });
-    });
+Cypress.Commands.add('loginAsAdmin', () => {
+    setupSession('admin', 'admin@raf.rs', 'admin123');
 });
 
-// cypress/support/commands.ts (ili commands.js)
-
 Cypress.Commands.add('loginAsClient', () => {
-    const apiUrl = Cypress.env('API_URL');
-    if (!apiUrl) throw new Error('Missing Cypress env API_URL');
-
-    cy.session('client', () => {
-        cy.request('POST', `${apiUrl}/auth/login`, {
-            email: 'marko.markovic@example.com',
-            password: 'password123',
-        }).then((res) => {
-            expect(res.status).to.eq(200);
-
-            const { user, token, refresh_token } = res.body;
-
-            window.localStorage.setItem('token', token);
-
-            if (refresh_token) window.localStorage.setItem('refreshToken', refresh_token);
-            else window.localStorage.removeItem('refreshToken');
-
-            window.localStorage.setItem('user', JSON.stringify(user));
-        });
-    });
+    setupSession('client-marko', 'marko.markovic@example.com', 'password123');
 });
 
 Cypress.Commands.add('loginAsClientAna', () => {
-    const apiUrl = Cypress.env('API_URL');
-    if (!apiUrl) throw new Error('Missing Cypress env API_URL');
-
-    cy.session('client', () => {
-        cy.request('POST', `${apiUrl}/auth/login`, {
-            email: 'ana.anic@example.com',
-            password: 'password123',
-        }).then((res) => {
-            expect(res.status).to.eq(200);
-
-            const { user, token, refresh_token } = res.body;
-
-            window.localStorage.setItem('token', token);
-
-            if (refresh_token) window.localStorage.setItem('refreshToken', refresh_token);
-            else window.localStorage.removeItem('refreshToken');
-
-            window.localStorage.setItem('user', JSON.stringify(user));
-        });
-    });
+    setupSession('client-ana', 'ana.anic@example.com', 'password123');
 });

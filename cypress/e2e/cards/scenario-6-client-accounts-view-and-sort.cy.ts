@@ -1,29 +1,84 @@
-// cypress/e2e/cards/scenario-6-client-accounts-real.cy.ts
-describe('Scenario 6: Pregled računa klijenta (real podaci)', () => {
-    it('prikazuje aktivne račune i sortira ih po raspoloživom stanju', () => {
+describe('Scenario 6: Pregled računa klijenta', () => {
+    it('prikazuje samo aktivne račune i sortira ih po raspoloživom stanju', () => {
         cy.loginAsClient();
+
+        cy.intercept('GET', '**/clients/*/accounts*', {
+            statusCode: 200,
+            body: {
+                data: [
+                    {
+                        account_number: '265-1111111111111-11',
+                        name: 'Racun A',
+                        currency: 'RSD',
+                        balance: 100000,
+                        reserved_funds: 90000,
+                        status: 'ACTIVE',
+                    },
+                    {
+                        account_number: '265-2222222222222-22',
+                        name: 'Racun B',
+                        currency: 'RSD',
+                        balance: 50000,
+                        reserved_funds: 0,
+                        status: 'ACTIVE',
+                    },
+                    {
+                        account_number: '265-3333333333333-33',
+                        name: 'Racun C',
+                        currency: 'RSD',
+                        balance: 20000,
+                        reserved_funds: 1000,
+                        status: 'ACTIVE',
+                    },
+                    {
+                        account_number: '265-9999999999999-99',
+                        name: 'Racun Zatvoren',
+                        currency: 'RSD',
+                        balance: 999999,
+                        reserved_funds: 0,
+                        status: 'CLOSED',
+                    },
+                ],
+            },
+        }).as('getAccounts');
+
+        cy.intercept('GET', '**/clients/*/accounts/*/payments*', {
+            statusCode: 200,
+            body: { data: [] },
+        });
+
         cy.visit('/client/accounts');
+        cy.wait('@getAccounts').its('response.statusCode').should('eq', 200);
 
-        // Stranica učitana
-        cy.contains(/moji računi|računi/i).should('be.visible');
+        cy.contains(/moji računi/i).should('be.visible');
 
-        // Izaberi sortiranje: "Po raspoloživom stanju"
         cy.contains(/sortiraj račune/i)
             .parent()
             .find('select')
             .select('available');
 
-        // Provera 1: prikazuju se samo aktivni (UI obično prikazuje status kao tekst/tag)
-        // Ako imate tag "Aktivan"/"Neaktivan" ili status na kartici.
-        cy.contains(/neaktivan|zatvoren|inactive|closed/i).should('not.exist');
+        cy.contains('Racun Zatvoren').should('not.exist');
 
-        // Provera 2: sortiranje po raspoloživom stanju
-        // Pošto ne znamo tačan DOM za iznose, najbezbolnije je:
-        // - uzeti sve prikazane iznose (RSD/EUR/...) iz master liste
-        // - parsirati brojeve i proveriti da je niz sortiran (desc ili asc).
-        //
-        // OVO TREBA prilagoditi selektoru na element koji prikazuje "raspoloživo stanje" na kartici.
-        // Ako je kod vas na kartici prikazan samo "stanje", zameni selektor da gađa to polje.
+        cy.get('button').then(($buttons) => {
+            const detailButtons = Array.from($buttons).filter((btn) =>
+                /^Detalji$/i.test((btn.textContent ?? '').trim())
+            );
 
+            expect(detailButtons).to.have.length(3);
+
+            const orderedAccountNumbers = detailButtons
+                .map((btn) => {
+                    const cardText = (btn.closest('div')?.parentElement?.textContent ?? '').replace(/\s+/g, ' ');
+                    const match = cardText.match(/265-\d{13}-\d{2}/);
+                    return match?.[0] ?? '';
+                })
+                .filter(Boolean);
+
+            expect(orderedAccountNumbers).to.deep.equal([
+                '265-2222222222222-22',
+                '265-3333333333333-33',
+                '265-1111111111111-11',
+            ]);
+        });
     });
 });

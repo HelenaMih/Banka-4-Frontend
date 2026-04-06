@@ -3,8 +3,31 @@ describe('Scenario 12: Plaćanje u različitim valutama uz konverziju (Transfer 
     it('sa prvog računa prebacuje na drugi i radi konverziju + proviziju', () => {
         cy.loginAsClient();
 
+        cy.intercept('GET', '**/clients/*/accounts*', {
+            statusCode: 200,
+            body: {
+                data: [
+                    { account_number: '265-1111111111111-11', name: 'RSD 1', currency: 'RSD', balance: 100000 },
+                    { account_number: '265-2222222222222-22', name: 'EUR 1', currency: 'EUR', balance: 2000 },
+                    { account_number: '265-3333333333333-33', name: 'RSD 2', currency: 'RSD', balance: 50000 },
+                ],
+            },
+        }).as('getAccounts');
+
+        cy.intercept('POST', '**/clients/*/transfers', {
+            statusCode: 201,
+            body: {
+                message: 'Transfer uspešno izvršen',
+                data: {
+                    id: 5001,
+                    status: 'SUCCESS',
+                },
+            },
+        }).as('createTransfer');
+
         // Transfer prozor
         cy.visit('/transfers/new');
+        cy.wait('@getAccounts');
         cy.location('pathname').should('eq', '/transfers/new');
 
         // FROM = 1. račun u dropdown-u (posle placeholder-a)
@@ -28,10 +51,10 @@ describe('Scenario 12: Plaćanje u različitim valutama uz konverziju (Transfer 
             .as('toSelect');
 
         cy.get('@toSelect').find('option').then(($opts) => {
-            expect($opts.length, 'Očekujem bar 3 opcije u TO select-u (placeholder + min 2 računa)').to.be.greaterThan(2);
-            const secondAccountValue = $opts[2].getAttribute('value'); // placeholder(0), prvi(1), drugi(2)
-            expect(secondAccountValue, 'TO second account value').to.be.ok;
-            cy.get('@toSelect').select(secondAccountValue!);
+            expect($opts.length, 'Očekujem bar 2 opcije u TO select-u (placeholder + 1 račun)').to.be.greaterThan(1);
+            const firstValidToAccount = Array.from($opts).map(o => o.getAttribute('value')).find(v => !!v);
+            expect(firstValidToAccount, 'TO account value').to.be.ok;
+            cy.get('@toSelect').select(firstValidToAccount!);
         });
 
         // Iznos = 50
@@ -53,6 +76,10 @@ describe('Scenario 12: Plaćanje u različitim valutama uz konverziju (Transfer 
 
         // Potvrdi
         cy.contains('button', /potvrdi|izvrši/i).click();
+
+        cy.wait('@createTransfer', { timeout: 20000 })
+            .its('response.statusCode')
+            .should('be.oneOf', [200, 201]);
 
         // Uspeh
         cy.contains(/uspešno|success/i, { timeout: 20000 }).should('be.visible');

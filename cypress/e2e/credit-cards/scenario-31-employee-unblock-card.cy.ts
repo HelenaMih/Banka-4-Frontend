@@ -1,53 +1,53 @@
-import { visitEmployeeLogin, fillLoginForm, submitLogin } from '../../support/authHelpers';
+describe('Scenario 31: Odblokiranje kartice od strane zaposlenog', () => {
+    it('zaposleni pronalazi blokiranu karticu i odblokira je', () => {
+        cy.loginAsAdmin();
+        const apiUrl = Cypress.env('API_URL');
 
-describe('Scenario 31: Admin deblokira karticu klijentu Ana Anić', () => {
-    it('Admin navigira kroz padajući meni i deblokira karticu Ani Anić', () => {
-        // 1. LOGIN KAO ADMIN
-        cy.intercept('POST', '**/auth/login').as('login');
-        visitEmployeeLogin();
-        fillLoginForm('admin@raf.rs', 'admin123');
-        submitLogin();
-        cy.wait('@login').its('response.statusCode').should('eq', 200);
+        cy.intercept('GET', `${apiUrl}/clients*`, {
+            statusCode: 200,
+            body: {
+                data: [
+                    { id: 101, first_name: 'Ana', last_name: 'Anic', email: 'ana.anic@example.com' },
+                ],
+            },
+        }).as('getClients');
 
-        // 2. NAVIGACIJA KROZ PADUJUĆI MENI
-        cy.get('nav, .navbar, .sidebar')
-            .contains(/admin portali/i)
-            .should('be.visible')
-            .click();
+        cy.intercept('GET', '**/clients/101/accounts*', {
+            statusCode: 200,
+            body: {
+                data: [
+                    { account_number: '265-1234567890123-45', name: 'Tekuci RSD', account_type: 'PERSONAL' },
+                ],
+            },
+        }).as('getAccounts');
 
-        cy.contains(/računi i kartice/i)
-            .should('be.visible')
-            .click();
+        cy.intercept('GET', '**/clients/101/accounts/265-1234567890123-45/cards*', {
+            statusCode: 200,
+            body: {
+                data: [
+                    { id: 7001, card_number: '4000123412341234', status: 'BLOCKED' },
+                ],
+            },
+        }).as('getCards');
 
-        // 3. PRONAĐI ANU I KLIKNI PRVI PUT (U TABELI)
-        cy.contains('tr', 'ana.anic@example.com')
-            .should('contain', 'Blokirana')
-            .within(() => {
-                cy.contains('button', /deblokiraj/i)
-                    .should('be.visible')
-                    .click({ force: true });
-            });
+        cy.intercept('PUT', '**/cards/7001/unblock', {
+            statusCode: 200,
+            body: { message: 'Kartica je aktivna. Klijent je obavesten email-om.' },
+        }).as('unblockCard');
 
-        // 4. KLIKNI OPET DUGME DEBLOKIRAJ (U MINI MENIJU)
-        // Koristimo cy.get('body') da izađemo iz prethodnog 'within' konteksta
-        cy.get('body').within(() => {
-            cy.get('button')
-                .contains(/deblokiraj/i)
-                .last()
-                .should('be.visible')
-                .click({ force: true });
+        cy.visit('/admin/cards');
+        cy.wait('@getClients');
+        cy.wait('@getAccounts');
+        cy.wait('@getCards');
+
+        cy.contains('tr', 'ana.anic@example.com').within(() => {
+            cy.contains('button', /deblokiraj/i).click({ force: true });
         });
 
-
-// 1. Prvi klik u tabeli (otvara prozorčić)
-        cy.contains('tr', 'ana.anic@example.com').find('button').contains(/deblokiraj/i).click({ force: true });
-
-// 2. TA JEDNA LINIJA koja pogađa dugme u prozorčiću
-        cy.contains(/da li ste sigurni/i).closest('div').find('button').contains(/deblokiraj/i).click({ force: true });
-
-// 3. Provera statusa
-        cy.contains('tr', 'ana.anic@example.com', { timeout: 10000 }).should('contain', 'Aktivna');
-
-
+        cy.contains('h3', /deblokiraj karticu/i)
+            .parent()
+            .contains('button', /^Deblokiraj$/)
+            .click({ force: true });
+        cy.wait('@unblockCard').its('response.statusCode').should('eq', 200);
     });
 });

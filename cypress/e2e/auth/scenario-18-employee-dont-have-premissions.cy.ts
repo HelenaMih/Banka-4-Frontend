@@ -1,29 +1,61 @@
-// cypress/e2e/employees/scenario-18-verify-empty-permissions.cy.ts
-
-import { visitEmployeeLogin, fillLoginForm, submitLogin } from '../../support/authHelpers';
 import { fillInputByLabel, fillDateByLabel, selectByLabel } from '../../support/formByLable';
 
 describe('Scenario 18: Verifikacija praznih permisija za novog korisnika', () => {
 
     it('Kreira korisnika i ulazi u njegove detalje iz tabele', () => {
-        // 1. Prijava na sistem
-        cy.intercept('POST', '**/auth/login').as('login');
-        visitEmployeeLogin();
-        fillLoginForm('admin@raf.rs', 'admin123');
-        submitLogin();
-        cy.wait('@login');
+        cy.loginAsAdmin();
+        const apiUrl = Cypress.env('API_URL') as string;
 
-        // 2. Odlazak direktno na formu za kreiranje
-        cy.intercept('POST', '**/employees/register').as('registerEmployee');
+        const employeeId = 99018;
+
+        cy.intercept('POST', `${apiUrl}/employees/register`, (req) => {
+            expect(req.body.permissions).to.deep.equal([]);
+            req.reply({
+                statusCode: 201,
+                body: {
+                    data: {
+                        id: employeeId,
+                        ...req.body,
+                    },
+                },
+            });
+        }).as('registerEmployee');
+
+        cy.intercept('GET', `${apiUrl}/employees?page=*&page_size=*`, {
+            statusCode: 200,
+            body: {
+                data: [],
+                total_pages: 1,
+                page: 1,
+                page_size: 20,
+            },
+        }).as('employeesList');
+
+        cy.intercept('GET', `${apiUrl}/employees/${employeeId}*`, {
+            statusCode: 200,
+            body: {
+                id: employeeId,
+                first_name: 'Novi',
+                last_name: 'Zaposleni',
+                email: 'novi.zaposleni@raf.rs',
+                phone_number: '+381601234567',
+                address: 'Bulevar Kralja Aleksandra 1',
+                date_of_birth: '1990-01-01',
+                gender: 'M',
+                active: true,
+                position_id: 1,
+                department: 'IT',
+                permissions: [],
+            },
+        }).as('employeeDetails');
+
         cy.visit('/employees/new');
 
-        // Podaci za novog korisnika
         const ts = Date.now();
         const email = `nema_permisija_${ts}@raf.rs`;
         const ime = 'Novi';
         const prezime = 'Zaposleni';
 
-        // 3. Popunjavanje forme (BEZ čekiranja permisija)
         fillInputByLabel('Ime', ime);
         fillInputByLabel('Prezime', prezime);
         fillInputByLabel('Email adresa', email);
@@ -35,34 +67,16 @@ describe('Scenario 18: Verifikacija praznih permisija za novog korisnika', () =>
         fillInputByLabel('Departman', 'IT');
         fillInputByLabel('Username', `user${ts}`);
 
-        // Klik na dugme za kreiranje
         cy.contains('button[type="submit"]', 'Kreiraj zaposlenog').click();
 
-        // Čekamo da se registracija završi i da nas vrati na listu
-        cy.wait('@registerEmployee');
-        cy.url().should('include', '/employees');
+        cy.wait('@registerEmployee').its('response.statusCode').should('eq', 201);
+        cy.wait('@employeesList');
 
-        // 4. PRONALAŽENJE I ULAZAK U PROFIL
-        // Čekamo da se tabela učita
-        cy.get('table', { timeout: 10000 }).should('be.visible');
+        cy.visit(`/employees/${employeeId}`);
+        cy.wait('@employeeDetails').its('response.statusCode').should('eq', 200);
 
-        // Tražimo red koji sadrži email našeg novog korisnika i klikćemo na njega
-        cy.get('table tbody tr')
-            .contains('td', email)
-            .should('be.visible')
-            .click({ force: true });
-
-        // 5. PROVERA DETALJA (U VIEW MODU)
-        // Proveravamo da li smo na stranici sa detaljima (/employees/ID)
-        cy.location('pathname').should('match', /\/employees\/\d+$/);
-
-        // Potvrđujemo da nema vizuelnih elemenata (tagova/čipova) koji predstavljaju permisije
-        // Obično su to elementi sa klasom .p-chip, .badge ili .tag
-        cy.get('body').within(() => {
-            // Proveravamo sekciju gde bi trebalo da budu permisije
-            // Ako nema nijednog taga, test prolazi
-            cy.get('.p-chip, .badge, .tag, .permission-item').should('not.exist');
-        });
+        cy.location('pathname').should('eq', `/employees/${employeeId}`);
+        cy.contains(/nema dodeljenih permisija/i).should('be.visible');
 
     });
 });

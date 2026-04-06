@@ -1,12 +1,12 @@
-describe('Scenario 29: Pregled liste kartica', () => {
-    it('klijent vidi listu kartica u maskiranom formatu', () => {
-        cy.loginAsClientAna();
+describe('Scenario 32: Pokusaj aktivacije deaktivirane kartice', () => {
+    it('sistem ne dozvoljava aktivaciju deaktivirane kartice', () => {
+        cy.loginAsClient();
 
         cy.intercept('GET', '**/clients/*/accounts*', {
             statusCode: 200,
             body: {
                 data: [
-                    { account_number: '265-1234567890123-45', name: 'Tekuci', currency: 'RSD' },
+                    { account_number: '265-1234567890123-45', name: 'Tekuci RSD', currency: 'RSD' },
                 ],
             },
         }).as('getAccounts');
@@ -16,10 +16,10 @@ describe('Scenario 29: Pregled liste kartica', () => {
             body: {
                 data: [
                     {
-                        id: 7001,
-                        card_number: '4000123412341234',
+                        id: 7701,
+                        card_number: '4000123412349999',
+                        status: 'DEACTIVATED',
                         card_type: 'DEBIT',
-                        status: 'ACTIVE',
                         expiration_date: '2028-08-01T00:00:00Z',
                     },
                 ],
@@ -30,9 +30,8 @@ describe('Scenario 29: Pregled liste kartica', () => {
         cy.wait('@getAccounts');
         cy.wait('@getCards');
 
-        cy.contains(/kartice/i).should('be.visible');
-
-        cy.contains(/\d{4}\s\*\*\*\*\s\*\*\*\*\s\d{4}/, { timeout: 10000 }).should('be.visible');
-        cy.contains(/detalji kartice|aktivna|blokirana|deaktivirana/i).should('be.visible');
+        cy.contains('button', /detalji kartice/i).click({ force: true });
+        cy.contains(/trajno deaktivirana|ne mo.e se ponovo aktivirati/i).should('be.visible');
+        cy.contains('button', /aktiviraj/i).should('not.exist');
     });
 });

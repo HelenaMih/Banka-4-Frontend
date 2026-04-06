@@ -1,39 +1,36 @@
-import { visitEmployeeLogin, fillLoginForm, submitLogin } from '../../support/authHelpers';
-
 describe('Scenario 34: Pregled kredita klijenta', () => {
     it('Klijent vidi listu svojih kredita sortiranu po ukupnom iznosu', () => {
-        // 1. LOGIN KAO KLIJENT
-        cy.loginAsClientAna();
-        cy.visit('/dashboard');
+        cy.loginAsClient();
 
-        // 2. OTVARANJE SEKCIJE "KREDITI"
-        // Koristimo tvoj provjereni metod navigacije
-        cy.get('nav, .navbar, .sidebar, aside')
-            .contains(/krediti/i)
-            .should('be.visible')
-            .click();
+        cy.intercept('GET', '**/clients/*/accounts*', {
+            statusCode: 200,
+            body: {
+                data: [
+                    { account_number: '265-1111111111111-11', name: 'Tekuci RSD', currency: 'RSD', balance: 200000 },
+                ],
+            },
+        }).as('getAccounts');
 
-        // 3. POTVRDA DA SE PRIKAZUJE LISTA (TABELA)
-        // Provjeravamo da li tabela postoji i da li ima redova (tr)
-        cy.get('table tbody tr').should('have.length.at.least', 1);
+        cy.intercept('GET', '**/clients/*/loans*', {
+            statusCode: 200,
+            body: {
+                data: [
+                    { id: 1, loan_type: 'AUTO', amount: 120000, currency: 'RSD', status: 'APPROVED', created_at: '2025-01-01T00:00:00Z' },
+                    { id: 2, loan_type: 'MORTGAGE', amount: 500000, currency: 'RSD', status: 'APPROVED', created_at: '2025-01-02T00:00:00Z' },
+                    { id: 3, loan_type: 'CASH', amount: 300000, currency: 'RSD', status: 'PENDING', created_at: '2025-01-03T00:00:00Z' },
+                ],
+            },
+        }).as('getLoans');
 
-        // 4. PROVERA SORTIRANJA PO UKUPNOM IZNOSU
-        // Pretpostavljamo da je iznos u jednoj od kolona (npr. treća kolona)
-        // Uzimamo sve vrijednosti iz kolone za iznos
-        let amounts: number[] = [];
+        cy.visit('/client/loans');
+        cy.wait('@getLoans');
+        cy.wait('@getAccounts');
 
-        cy.get('table tbody tr td:nth-child(3)') // Promijeni broj 3 u indeks kolone gdje je iznos
-            .each(($el) => {
-                // Izvlačimo tekst, uklanjamo valutu (npr. "EUR" ili "RSD") i pretvaramo u broj
-                const text = $el.text().replace(/[^0-9.-]+/g, "");
-                amounts.push(parseFloat(text));
-            })
-            .then(() => {
-                // Pravimo kopiju niza i sortiramo je (npr. opadajuće ili rastuće)
-                // Ovdje provjeravamo da li je originalni niz identičan sortiranom nizu
-                const sorted = [...amounts].sort((a, b) => b - a); // b - a za opadajuće (najveći prvi)
-                expect(amounts).to.deep.equal(sorted);
-            });
+        // UI koristi kartice, ne tabelu; redosled mora biti po iznosu opadajuce.
+        cy.get('.ll-card').should('have.length.at.least', 3);
+        cy.get('.ll-card').eq(0).should('contain.text', '500.000,00 RSD');
+        cy.get('.ll-card').eq(1).should('contain.text', '300.000,00 RSD');
+        cy.get('.ll-card').eq(2).should('contain.text', '120.000,00 RSD');
 
     });
 });
