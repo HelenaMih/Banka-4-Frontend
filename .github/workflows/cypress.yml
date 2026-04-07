@@ -3,33 +3,50 @@ run-name: End-to-end for ${{ github.repository }}
 
 on:
   workflow_dispatch:
-  pull_request:
+  push:
 
 jobs:
   end-to-end:
     runs-on: ubuntu-24.04
-    # strategy:
-    #   fail-fast: false
-    #   matrix:
-    #     containers: [1, 2, 3, 4]
 
     steps:
       - name: Check out ${{ github.ref }} after a ${{ github.event_name }} event
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
-      - name: Setup .env file
-        env:
-          SECRETS_CONTEXT: ${{ toJson(secrets) }}
-          VARS_CONTEXT: ${{ toJson(vars) }}
+      - name: Login to GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Setup backend using Docker Compose
         run: |
-          echo $SECRETS_CONTEXT | jq -r "to_entries|map(\"\(.key)=\\\"\(.value|tostring)\\\"\")|.[]" >> .env
-          echo $VARS_CONTEXT | jq -r "to_entries|map(\"\(.key)=\\\"\(.value|tostring)\\\"\")|.[]" >> .env
-          cat .env
+          wget ${{ vars.DOCKER_COMPOSE_URL }} -O docker-compose.yml
+          wget ${{ vars.ENV_URL }} -O .env
+          docker compose up -d
+
+      - name: Wait for the services to start up and check their health
+        run: |
+          while docker compose ps | grep "starting"
+          do
+            sleep 5
+          done
+          if docker compose ps | grep "unhealthy"
+          then
+            echo "One or more backend services are unhealthy. Check the logs for details."
+            exit 1
+          fi
+
+      - name: Copy frontend .env file
+        run: cp .github/workflows/.env.test .env
 
       - name: Run Cypress
-        uses: cypress-io/github-action@v7
+        uses: cypress-io/github-action@783cb3f07983868532cabaedaa1e6c00ff4786a8
         with:
-          start: npm run dev
-        # env:
-        #   SPLIT: ${{ strategy.job-total }}
-        #   SPLIT_INDEX: ${{ strategy.job-index }}
+          # build: npm run build
+          # start: npm run preview
+          # wait-on: 'http://localhost:4173'
+          build: npm run dev
+          browser: chrome
