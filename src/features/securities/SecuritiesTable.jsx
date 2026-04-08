@@ -28,6 +28,8 @@ export default function SecuritiesTable({
   sortDir,
   onSort,
 }) {
+  const isOption = securities.length > 0 && securities[0].type === 'OPTION';
+
   function SortIcon({ col }) {
     const active = sortBy === col;
     return (
@@ -78,8 +80,11 @@ export default function SecuritiesTable({
             <Th col="volume">Volumen</Th>
             <th className={styles.th}>Bid</th>
             <th className={styles.th}>Ask</th>
-            <Th col="maintenanceMargin">Maint. Margin</Th>
-            <th className={styles.th}>Init. Margin Cost</th>
+            {isOption && <th className={styles.th}>Strike</th>}
+            {isOption && <th className={styles.th}>OI</th>}
+            {isOption && <th className={styles.th}>Datum isteka</th>}
+            {!isOption && <Th col="maintenanceMargin">Maint. Margin</Th>}
+            {!isOption && <th className={styles.th}>Init. Margin Cost</th>}
             {onAction && <th className={styles.th}></th>}
           </tr>
         </thead>
@@ -112,12 +117,17 @@ export default function SecuritiesTable({
                 <td className={styles.td}>{fmtVol(sec.volume)}</td>
                 <td className={styles.td}>{fmt(sec.bid)}</td>
                 <td className={styles.td}>{fmt(sec.ask)}</td>
+                {isOption && <td className={styles.td}>{fmt(sec.strike)} {sec.currency}</td>}
+                {isOption && <td className={styles.td}>{fmtVol(sec.openInterest)}</td>}
+                {isOption && <td className={styles.td}>{sec.settlementDate || '—'}</td>}
+                {!isOption && (
                 <td className={styles.td}>
                   {sec.type === 'FOREX'
                     ? `${(sec.maintenanceMargin * 100).toFixed(0)}%`
                     : fmt(sec.maintenanceMargin)}
                 </td>
-                <td className={styles.td}>{fmt(sec.initialMarginCost)}</td>
+                )}
+                {!isOption && <td className={styles.td}>{fmt(sec.initialMarginCost)}</td>}
                 {onAction && (
                   <td className={styles.td} onClick={e => e.stopPropagation()}>
                     <button

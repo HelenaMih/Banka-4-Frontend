@@ -4,6 +4,7 @@ const TABS = [
   { value: 'STOCK',   label: 'Akcije',  icon: '📈' },
   { value: 'FUTURES', label: 'Futures', icon: '📊' },
   { value: 'FOREX',   label: 'Forex',   icon: '💱' },
+  { value: 'OPTIONS', label: 'Opcije',  icon: '📄' },
 ];
 
 export default function SecurityTabs({ activeTab, onChange, canSeeForex }) {

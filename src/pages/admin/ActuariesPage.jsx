@@ -30,7 +30,8 @@ export default function ActuariesPage() {
   const load = useCallback((params = {}) => {
     setLoading(true);
     setFetchError(null);
-    actuariesApi.getAll(params)
+    const queryParams = { page: 1, pageSize: 100, ...params };
+    actuariesApi.getAll(queryParams)
       .then(res => {
         const list = Array.isArray(res) ? res : res?.data ?? [];
         setActuaries(list);

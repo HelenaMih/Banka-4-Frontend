@@ -207,6 +207,7 @@ export default function ClientSecurities() {
     if (activeTab === 'STOCK')   return securitiesApi.getStocks();
     if (activeTab === 'FUTURES') return securitiesApi.getFutures();
     if (activeTab === 'FOREX')   return securitiesApi.getForex();
+    if (activeTab === 'OPTIONS') return securitiesApi.getOptions();
     return Promise.resolve([]);
   }, [activeTab]);
 
@@ -249,6 +250,7 @@ export default function ClientSecurities() {
   //   if (activeTab === 'STOCK')   details = await securitiesApi.getStockById(sec.id);
   //   if (activeTab === 'FUTURES') details = await securitiesApi.getFuturesById(sec.id);
   //   if (activeTab === 'FOREX')   details = await securitiesApi.getForexById(sec.id);
+  //   if (activeTab === 'OPTIONS') details = await securitiesApi.getOptionById(sec.id);
   //   setSelectedSec(details ?? sec);
   // } catch {
   //   setSelectedSec(sec);

@@ -295,8 +295,6 @@ export default function SupervisorOrdersPage() {
                     <th>Direction</th>
                     <th>Remaining portions</th>
                     <th>Status</th>
-                    <th>Last modification</th>
-                    <th>Approved by</th>
                     <th>Akcije</th>
                   </tr>
                 </thead>
@@ -340,8 +338,6 @@ export default function SupervisorOrdersPage() {
                         <td>
                           <OrderStatusTag status={order.status} />
                         </td>
-                        <td>{formatDateTime(order.lastModification)}</td>
-                        <td>{order.approvedBy || '—'}</td>
                         <td>
                           <div className={styles.actionGroup}>
                             {permissions.canApprove && (

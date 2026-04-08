@@ -85,6 +85,32 @@ function mapForex(s) {
   };
 }
 
+function mapOptionBase(s) {
+  return {
+    id:               s.listing_id,
+    type:             'OPTION',
+    ticker:           s.ticker,
+    name:             s.name,
+    exchange:         s.exchange ?? '',
+    price:            s.price,
+    change:           s.change,
+    changePercent:    null,
+    volume:           s.volume,
+    bid:              s.bid,
+    ask:              s.ask,
+    maintenanceMargin: s.maintenance_margin,
+    initialMarginCost: s.initial_margin_cost,
+    
+    // Specifična polja za opcije:
+    strike:           s.strike,
+    openInterest:     s.open_interest,
+    settlementDate:   s.settlement_date,
+    optionType:       s.option_type,
+    impliedVolatility: s.implied_volatility,
+    history:          s.history ?? null,
+  };
+}
+
 function mapOptionRaw(o) {
   return {
     listing_id:         o.listing_id,
@@ -171,6 +197,14 @@ export const securitiesApi = {
     });
   },
 
+  getOptions(params = {}) {
+    return api.get('/listings/options', { params }).then(res => {
+      const parsed = unpack(res);
+      const list = Array.isArray(parsed) ? parsed : parsed?.data ?? [];
+      return list.map(mapOptionBase);
+    });
+  },
+
   getStockById(id) {
     return api.get(`/listings/stock/${id}`).then(res => {
       const s = unpack(res);
@@ -194,6 +228,13 @@ export const securitiesApi = {
     return api.get(`/listings/forex/${id}`).then(res => {
       const s = unpack(res);
       return attachHistory(mapForex(s), s.history);
+    });
+  },
+
+  getOptionById(id) {
+    return api.get(`/listings/options/${id}`).then(res => {
+      const s = unpack(res);
+      return attachHistory(mapOptionBase(s), s.history);
     });
   },
 
