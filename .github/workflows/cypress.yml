@@ -1,0 +1,56 @@
+name: Cypress
+run-name: End-to-end for ${{ github.repository }}
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  end-to-end:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out ${{ github.ref }} after a ${{ github.event_name }} event
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup backend using Docker Compose
+        env:
+          SECRETS_CONTEXT: ${{ toJson(secrets) }}
+        run: |
+          wget https://raw.githubusercontent.com/RAF-SI-2025/Banka-4-Backend/refs/heads/main/docker-compose.yml
+          wget https://raw.githubusercontent.com/RAF-SI-2025/Banka-4-Backend/refs/heads/main/.github/workflows/.env.example -O .env
+          echo $SECRETS_CONTEXT | jq -r "to_entries|map(\"\(.key)=\\\"\(.value|tostring)\\\"\")|.[]" >> .env
+          docker compose up -d
+
+      - name: Wait for the services to start up and check their health
+        run: |
+          while docker compose ps | grep "starting"
+          do
+            sleep 5
+          done
+          if docker compose ps | grep "unhealthy"
+          then
+            echo "One or more backend services are unhealthy. Check the logs for details."
+            exit 1
+          fi
+
+      - name: Copy frontend environment variables
+        run: cp .github/workflows/cypress.env.test.json cypress.env.json && cp .github/workflows/.env.test .env
+
+      - name: Run Cypress
+        timeout-minutes: 30
+        uses: cypress-io/github-action@783cb3f07983868532cabaedaa1e6c00ff4786a8
+        with:
+          start: npm run dev
+          browser: chrome
