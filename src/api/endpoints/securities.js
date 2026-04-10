@@ -1,16 +1,13 @@
 import { tradingApi as api } from '../client';
 
 function unpack(res) {
-  const raw = res?.data ?? res;
+  // Interceptor već vrati res.data, ali ako nije, uzmi res.data ?? res
+  const raw = (res?.data !== undefined && res?.status !== undefined) ? res.data : res;
   if (typeof raw !== 'string') return raw;
-  // Backend šalje duplirani JSON — uzimamo samo prvi objekat
-  const firstJson = raw.slice(0, raw.indexOf('}]') + 2) + '}';
+  // Fallback za slučaj da backend vrati string (stari duplirani JSON bug)
   try {
-    return JSON.parse(firstJson);
+    return JSON.parse(raw);
   } catch {
-    // Fallback: pokušaj da nađeš prvi kompletan JSON objekat
-    const match = raw.match(/^\{.*?"pageSize":\d+\}/s);
-    if (match) return JSON.parse(match[0]);
     return { data: [] };
   }
 }
@@ -172,15 +169,12 @@ function attachHistory(mapped, history) {
 export const securitiesApi = {
 
   getStocks(params = {}) {
-  return api.get('/listings/stocks', { params }).then(res => {
-    const parsed = unpack(res);
-    console.log('TYPE OF RES:', typeof res, 'TYPE OF RES.DATA:', typeof res?.data);
-    console.log('PARSED:', parsed);
-    console.log('LIST:', Array.isArray(parsed) ? parsed : parsed?.data);
-    const list = Array.isArray(parsed) ? parsed : parsed?.data ?? [];
-    return list.map(mapStock);
-  });
-},
+    return api.get('/listings/stocks', { params }).then(res => {
+      const parsed = unpack(res);
+      const list = Array.isArray(parsed) ? parsed : parsed?.data ?? [];
+      return list.map(mapStock);
+    });
+  },
 
   getFutures(params = {}) {
     return api.get('/listings/futures', { params }).then(res => {

@@ -7,8 +7,12 @@ const TABS = [
   { value: 'OPTIONS', label: 'Opcije',  icon: '📄' },
 ];
 
-export default function SecurityTabs({ activeTab, onChange, canSeeForex }) {
-  const visibleTabs = canSeeForex ? TABS : TABS.filter(t => t.value !== 'FOREX');
+export default function SecurityTabs({ activeTab, onChange, canSeeForex, canSeeOptions }) {
+  const visibleTabs = TABS.filter(t => {
+    if (t.value === 'FOREX'    && !canSeeForex)   return false;
+    if (t.value === 'OPTIONS'  && !canSeeOptions) return false;
+    return true;
+  });
 
   return (
     <div className={styles.tabsWrapper}>

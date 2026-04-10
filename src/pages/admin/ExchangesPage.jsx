@@ -72,9 +72,9 @@ export default function ExchangesPage() {
             <Spinner />
           </div>
         ) : error ? (
-          <Alert type="error" message="Nije moguće učitati listu berzi." />
+          <Alert tip="greska" poruka="Nije moguće učitati listu berzi." />
         ) : exchanges.length === 0 ? (
-          <Alert type="info" message="Nema dostupnih berzi." />
+          <Alert tip="info" poruka="Nema dostupnih berzi." />
         ) : (
           <div className={styles.grid}>
             {exchanges.map(ex => {

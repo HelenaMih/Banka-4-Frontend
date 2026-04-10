@@ -7,6 +7,7 @@ import Alert              from '../../components/ui/Alert';
 import ActuaryFilters     from '../../features/actuaries/ActuaryFilters';
 import ActuaryTable       from '../../features/actuaries/ActuaryTable';
 import LimitModal         from '../../features/actuaries/LimitModal';
+import limitStyles        from '../../features/actuaries/LimitModal.module.css';
 import styles             from './ActuariesPage.module.css';
 
 const EMPTY_FILTERS = { email: '', first_name: '', last_name: '', position: '' };
@@ -26,6 +27,10 @@ export default function ActuariesPage() {
   const [limitOpen,    setLimitOpen]    = useState(false);
   const [limitLoading, setLimitLoading] = useState(false);
   const [selectedActuary, setSelectedActuary] = useState(null);
+
+  // Reset confirmation modal state
+  const [resetTarget,  setResetTarget]  = useState(null);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const load = useCallback((params = {}) => {
     setLoading(true);
@@ -82,15 +87,23 @@ export default function ActuariesPage() {
     }
   }
 
-  async function handleResetUsedLimit(actuary) {
+  function handleResetUsedLimit(actuary) {
+    setResetTarget(actuary);
+  }
+
+  async function handleConfirmReset() {
+    setResetLoading(true);
     try {
-      await actuariesApi.resetUsedLimit(actuary.id);
+      await actuariesApi.resetUsedLimit(resetTarget.id);
       setActuaries(prev =>
-        prev.map(a => a.id === actuary.id ? { ...a, used_limit: 0 } : a)
+        prev.map(a => a.id === resetTarget.id ? { ...a, used_limit: 0 } : a)
       );
-      setFeedback({ type: 'uspeh', text: `Iskorišćen limit za ${actuary.first_name} ${actuary.last_name} je resetovan.` });
+      setFeedback({ type: 'uspeh', text: `Iskorišćen limit za ${resetTarget.first_name} ${resetTarget.last_name} je resetovan.` });
+      setResetTarget(null);
     } catch (err) {
       setFeedback({ type: 'greska', text: err?.response?.data?.error ?? err?.message ?? 'Greška pri resetovanju limita.' });
+    } finally {
+      setResetLoading(false);
     }
   }
 
@@ -141,6 +154,29 @@ export default function ActuariesPage() {
         actuary={selectedActuary}
         loading={limitLoading}
       />
+
+      {resetTarget && (
+        <div className={limitStyles.backdrop} onClick={() => setResetTarget(null)}>
+          <div className={limitStyles.modal} onClick={e => e.stopPropagation()}>
+            <h3 className={limitStyles.title}>Resetuj used limit</h3>
+            <p className={limitStyles.subtitle}>
+              {resetTarget.first_name} {resetTarget.last_name}
+            </p>
+            <div className={limitStyles.divider} />
+            <p style={{ fontSize: 14, color: 'var(--tx-2)', margin: '0 0 20px' }}>
+              Da li ste sigurni da želite da resetujete iskorišćen limit?
+            </p>
+            <div className={limitStyles.actions}>
+              <button className={limitStyles.btnGhost} onClick={() => setResetTarget(null)} disabled={resetLoading}>
+                Otkaži
+              </button>
+              <button className={limitStyles.btnPrimary} onClick={handleConfirmReset} disabled={resetLoading}>
+                {resetLoading ? 'Čuvanje...' : 'Potvrdi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

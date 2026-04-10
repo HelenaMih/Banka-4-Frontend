@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import styles from './TaxTable.module.css';
 
 const STATUS_CLASS = {
@@ -43,7 +43,7 @@ export default function TaxTable({ users = [], loading = false, onRunCalculation
           </tr>
         </thead>
         <tbody>
-          {users.map(user => {
+          {users.map((user, i) => {
             const isExpanded = expandedId === user.id;
             const hasAccounts = user.accounts && user.accounts.length > 0;
             const ukupnoDugovanje = hasAccounts
@@ -51,9 +51,8 @@ export default function TaxTable({ users = [], loading = false, onRunCalculation
               : user.tax_debt;
 
             return (
-              <>
+              <React.Fragment key={user.email || user.id || i}>
                 <tr
-                  key={user.id}
                   className={`${styles.mainRow} ${isExpanded ? styles.mainRowExpanded : ''} ${hasAccounts ? styles.mainRowClickable : ''}`}
                   onClick={() => hasAccounts && toggleExpand(user.id)}
                 >
@@ -104,7 +103,7 @@ export default function TaxTable({ users = [], loading = false, onRunCalculation
                 </tr>
 
                 {isExpanded && hasAccounts && (
-                  <tr key={`${user.id}-expand`} className={styles.expandRow}>
+                  <tr className={styles.expandRow}>
                     <td colSpan={8} className={styles.expandCell}>
                       <div className={styles.expandContent}>
                         <table className={styles.accountsTable}>
@@ -147,7 +146,7 @@ export default function TaxTable({ users = [], loading = false, onRunCalculation
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             );
           })}
         </tbody>

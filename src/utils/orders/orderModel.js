@@ -33,11 +33,11 @@ export const APPROVAL_DECISION = {
 
 export function normalizeOrder(raw) {
   return {
-    id: raw.id,
+    id: raw.id ?? raw.order_id,
     userId: raw.user_id ?? raw.userId,
     agentName: raw.agent_name ?? raw.agentName ?? '—',
     assetId: raw.asset_id ?? raw.assetId,
-    assetName: raw.asset_name ?? raw.assetName ?? '—',
+    assetName: raw.asset_name ?? raw.assetName ?? raw.listing_name ?? '—',
     assetType: raw.asset_type ?? raw.assetType ?? '—',
     orderType: raw.order_type ?? raw.orderType,
     quantity: raw.quantity ?? 0,

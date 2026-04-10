@@ -144,7 +144,10 @@ export default function SupervisorOrdersPage() {
 
     try {
       const response = ordersData;
-      const normalized = (Array.isArray(response) ? response : response?.items ?? []).map(normalizeOrder);
+      const rawList = Array.isArray(response)
+        ? response
+        : (response?.items ?? response?.data ?? response?.content ?? response?.orders ?? []);
+      const normalized = rawList.map(normalizeOrder);
 
       // setOrders(normalized.length > 0 ? normalized : MOCK_ORDERS.map(normalizeOrder));
       setOrders(normalized);
@@ -308,12 +311,12 @@ export default function SupervisorOrdersPage() {
                     </tr>
                   )}
 
-                  {filteredOrders.map((order) => {
+                  {filteredOrders.map((order, i) => {
                     const permissions = getOrderPermissions(order, actorRole);
                     const isBusy = processingId === order.id;
 
                     return (
-                      <tr key={order.id}>
+                      <tr key={order.id ?? i}>
                         <td>{order.agentName}</td>
                         <td>{formatOrderType(order.orderType)}</td>
                         <td>

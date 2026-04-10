@@ -3,7 +3,7 @@ import { tradingApi as api } from '../client';
 export const taxApi = {
   // GET /api/tax/users — lista korisnika sa poreskim podacima
   // Podržava query params: userType ("client"|"actuary"), first_name, last_name, page, page_size
-  getUsers: (params = {}) => api.get('/tax/users', { params }),
+  getUsers: (params = {}) => api.get('/tax', { params }),
 
   // POST /api/tax/collect — pokretanje naplate poreza za SVE korisnike (bez parametara)
   collect: () => api.post('/tax/collect'),

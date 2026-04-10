@@ -6,6 +6,6 @@ export const exchangeApi = {
 };
 
 export const stockExchangeApi = {
-    getAll: () => tradingApi.get('/exchange'),
-    toggle: (micCode) => tradingApi.patch(`/exchange/${micCode}/toggle`),
+    getAll: () => tradingApi.get('/exchanges'),
+    toggle: (micCode) => tradingApi.patch(`/exchanges/${micCode}/toggle`),
 };

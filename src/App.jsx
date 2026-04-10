@@ -2,6 +2,7 @@ import TaxPage from './pages/admin/TaxPage';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore }    from './store/authStore';
 import { useLayoutEffect } from 'react';
+import { useTokenRefresh } from './hooks/useTokenRefresh';
 import { usePermissions } from './hooks/usePermissions.js';
 
 // Auth pages
@@ -90,6 +91,8 @@ export default function App() {
   useLayoutEffect(() => {
     useAuthStore.getState().initFromStorage();
   }, []);
+
+  useTokenRefresh();
 
   const getDefaultRoute = () => {
     if (!token) return '/login';

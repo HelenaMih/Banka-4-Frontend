@@ -312,7 +312,7 @@ export default function ClientAccounts() {
 
   // Filter active + sort by criteria
   const accounts = useMemo(() => {
-    return [...localAccounts].sort((a, b) => {
+    return localAccounts.filter(a => !a.status || a.status === 'ACTIVE').sort((a, b) => {
       if (accountSortBy === 'balance') return (b.balance ?? 0) - (a.balance ?? 0);
       if (accountSortBy === 'available') {
         const availA = (a.balance ?? 0) - (a.reserved_funds ?? 0);

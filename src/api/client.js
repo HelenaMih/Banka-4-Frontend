@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
+const AUTH_BASE = import.meta.env.VITE_API_URL.replace(/\/$/, '');
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   headers: { 'Content-Type': 'application/json' },
@@ -73,9 +75,9 @@ api.interceptors.response.use(
     }
 
     try {
-      const res = await axios.post(`${import.meta.env.VITE_API_URL}/auth/refresh`, { refresh_token: refreshToken });
+      const res = await axios.post(`${AUTH_BASE}/auth/refresh`, { refresh_token: refreshToken });
       const newToken   = res.data.token;
-      const newRefresh = res.data.refresh_token;
+      const newRefresh = res.data.refresh_token || refreshToken;
       const currentUser = useAuthStore.getState().user;
       useAuthStore.getState().setAuth(currentUser, newToken, newRefresh);
 
@@ -124,9 +126,9 @@ bankingApi.interceptors.response.use(
     }
 
     try {
-      const res = await axios.post(`${import.meta.env.VITE_API_URL}/auth/refresh`, { refresh_token: refreshToken });
+      const res = await axios.post(`${AUTH_BASE}/auth/refresh`, { refresh_token: refreshToken });
       const newToken   = res.data.token;
-      const newRefresh = res.data.refresh_token;
+      const newRefresh = res.data.refresh_token || refreshToken;
       const currentUser = useAuthStore.getState().user;
       useAuthStore.getState().setAuth(currentUser, newToken, newRefresh);
 
@@ -151,7 +153,7 @@ tradingApi.interceptors.response.use(
   async err => {
     const original = err.config;
 
-    if ((err.response?.status !== 401 && err.response?.status !== 403) || original._retry) {
+    if (err.response?.status !== 401 || original._retry) {
       return Promise.reject(err.response?.data ?? err);
     }
 
@@ -174,9 +176,9 @@ tradingApi.interceptors.response.use(
     }
 
     try {
-      const res = await axios.post(`${import.meta.env.VITE_API_URL}/auth/refresh`, { refresh_token: refreshToken });
+      const res = await axios.post(`${AUTH_BASE}/auth/refresh`, { refresh_token: refreshToken });
       const newToken   = res.data.token;
-      const newRefresh = res.data.refresh_token;
+      const newRefresh = res.data.refresh_token || refreshToken;
       const currentUser = useAuthStore.getState().user;
       useAuthStore.getState().setAuth(currentUser, newToken, newRefresh);
 

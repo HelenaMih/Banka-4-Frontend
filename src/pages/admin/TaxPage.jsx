@@ -158,7 +158,7 @@ export default function TaxPage() {
           </div>
         )}
 
-        {(error || calcError) && (
+        {(error || calcError) && !calcSuccess && (
           <div className="page-anim">
             <Alert tip="greska" poruka={error ?? calcError} />
           </div>

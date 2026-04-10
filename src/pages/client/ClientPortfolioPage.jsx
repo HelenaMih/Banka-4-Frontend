@@ -38,7 +38,8 @@ export default function ClientPortfolioPage() {
         setLoading(true);
         setError(null);
         
-        const res = await portfolioApi.getClientPortfolio(user.id);
+        const clientId = user.client_id ?? user.id;
+        const res = await portfolioApi.getClientPortfolio(clientId);
         
         // Uzimamo podatke (client.js interceptor bi trebalo da već vraća res.data)
         const rawData = res?.data || res;

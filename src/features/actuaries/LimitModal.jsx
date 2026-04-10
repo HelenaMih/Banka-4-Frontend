@@ -20,7 +20,7 @@ export default function LimitModal({ open, onClose, onConfirm, actuary, loading 
   async function handleSubmit(e) {
     e.preventDefault();
     const parsed = Number(newLimit);
-    if (!newLimit.toString().trim() || isNaN(parsed) || parsed < 0) {
+    if (!newLimit.toString().trim() || isNaN(parsed) || parsed <= 0) {
       setError('Unesite validan limit (pozitivan broj).');
       return;
     }

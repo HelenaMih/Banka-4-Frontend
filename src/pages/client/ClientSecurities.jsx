@@ -13,6 +13,7 @@ import Navbar from '../../components/layout/Navbar';
 import styles from './ClientSubPage.module.css';
 import secStyles from './ClientSecurities.module.css';
 import { clientApi } from '../../api/endpoints/client';
+import { accountsApi } from '../../api/endpoints/accounts';
 
 
 function applyFilters(list, filters, search) {
@@ -62,11 +63,16 @@ function OrderModal({ security, activeTab, isEmployee, onClose }) {
   const [stopValue, setStopValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [afterHours, setAfterHours] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState('');
 
   const clientId = useAuthStore(s => s.user?.client_id ?? s.user?.id);
-  const { data: accountsData } = useFetch(() => clientApi.getAccounts(clientId), [clientId]);
+  // Zaposleni koriste bankine račune, klijenti koriste svoje lične račune
+  const { data: accountsData } = useFetch(
+    () => isEmployee ? accountsApi.getAll() : clientApi.getAccounts(clientId),
+    [isEmployee, clientId]
+  );
   const accounts = Array.isArray(accountsData) ? accountsData : accountsData?.data ?? [];
 
   if (!security) return null;
@@ -136,7 +142,7 @@ function OrderModal({ security, activeTab, isEmployee, onClose }) {
     setError('');
 
     try {
-      await securitiesApi.buy({
+      const result = await securitiesApi.buy({
         listingId:     security.id,
         accountNumber: accountNumber,
         quantity:      Number(qty),
@@ -145,6 +151,7 @@ function OrderModal({ security, activeTab, isEmployee, onClose }) {
         stopValue:     needsStop  ? Number(stopValue)  : 0,
       });
 
+      setAfterHours(result?.after_hours === true);
       setSubmitted(true);
       setShowConfirm(false);
     } catch (err) {
@@ -168,11 +175,15 @@ function OrderModal({ security, activeTab, isEmployee, onClose }) {
             <div className={styles.successBanner}>
               {isEmployee
                 ? '✓ Order je kreiran i čeka odobrenje.'
-                : '✓ Kupovina uspešna! Hartija je dodata u portfolio.'}
+                : afterHours
+                  ? '✓ Order je kreiran. Izvršiće se kada berza otvori.'
+                  : '✓ Order je kreiran i u obradi.'}
             </div>
-            {isEmployee && (
+            {(isEmployee || afterHours) && (
               <p style={{ fontSize: 13, color: 'var(--tx-2)', marginTop: 12 }}>
-                Novac će biti skinut sa računa tek nakon odobrenja.
+                {afterHours && !isEmployee
+                  ? 'Tržište je zatvoreno. Novac i hartija će biti ažurirani kada berza otvori.'
+                  : 'Novac će biti skinut sa računa tek nakon odobrenja.'}
               </p>
             )}
           </div>
@@ -372,8 +383,9 @@ export default function ClientSecurities() {
   const pageRef = useRef(null);
   const user = useAuthStore(s => s.user);
 
-  const isEmployee  = user?.identity_type === 'employee';
-  const canSeeForex = isEmployee;
+  const isEmployee    = user?.identity_type === 'employee';
+  const canSeeForex   = isEmployee;
+  const canSeeOptions = isEmployee;
 
   const [activeTab, setActiveTab] = useState('STOCK');
   const [selectedSec, setSelectedSec]   = useState(null);
@@ -393,7 +405,7 @@ export default function ClientSecurities() {
   }, [activeTab]);
 
   const { data: rawData, loading, error, refetch } = useFetch(fetcher, [activeTab]);
-  console.log('STATE:', { loading, error, rawData }); // DODAJ OVO
+
   const securities = Array.isArray(rawData) ? rawData : [];
 
   const filtered = useMemo(() => applyFilters(securities, filters, search), [securities, filters, search]);
@@ -483,6 +495,7 @@ export default function ClientSecurities() {
             activeTab={activeTab}
             onChange={handleTabChange}
             canSeeForex={canSeeForex}
+            canSeeOptions={canSeeOptions}
           />
 
           <div className={secStyles.searchWrap}>
