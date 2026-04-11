@@ -8,7 +8,7 @@ const STATUS_CLASS = {
   'Delimično': styles.statusPartial,
 };
 
-export default function TaxTable({ users = [], loading = false, onRunCalculation }) {
+export default function TaxTable({ users = [], loading = false }) {
   const [expandedId, setExpandedId] = useState(null);
 
   function toggleExpand(userId) {
@@ -39,7 +39,6 @@ export default function TaxTable({ users = [], loading = false, onRunCalculation
             <th>Dugovanje (RSD)</th>
             <th>Plaćeno (RSD)</th>
             <th>Status poreza</th>
-            <th>Akcije</th>
           </tr>
         </thead>
         <tbody>
@@ -89,22 +88,11 @@ export default function TaxTable({ users = [], loading = false, onRunCalculation
                       {user.tax_status}
                     </span>
                   </td>
-                  <td>
-                    <button
-                      className={styles.btnCalc}
-                      onClick={e => { e.stopPropagation(); onRunCalculation(user); }}
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <polygon points="5 3 19 12 5 21 5 3" />
-                      </svg>
-                      Obračun
-                    </button>
-                  </td>
                 </tr>
 
                 {isExpanded && hasAccounts && (
                   <tr className={styles.expandRow}>
-                    <td colSpan={8} className={styles.expandCell}>
+                    <td colSpan={7} className={styles.expandCell}>
                       <div className={styles.expandContent}>
                         <table className={styles.accountsTable}>
                           <thead>

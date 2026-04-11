@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect, useCallback } from 'react';
+import { useState, useRef, useLayoutEffect, useCallback, useMemo, useEffect } from 'react';
 import gsap                from 'gsap';
 import { actuariesApi }   from '../../api/endpoints/actuaries';
 import Navbar             from '../../components/layout/Navbar';
@@ -15,7 +15,7 @@ const EMPTY_FILTERS = { email: '', first_name: '', last_name: '', position: '' }
 export default function ActuariesPage() {
   const pageRef = useRef(null);
 
-  const [actuaries,  setActuaries]  = useState([]);
+  const [allActuaries, setAllActuaries] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [fetchError, setFetchError] = useState(null);
 
@@ -28,6 +28,13 @@ export default function ActuariesPage() {
   const [limitLoading, setLimitLoading] = useState(false);
   const [selectedActuary, setSelectedActuary] = useState(null);
 
+  // Auto-dismiss feedback after 5 seconds
+  useEffect(() => {
+    if (!feedback) return;
+    const timer = setTimeout(() => setFeedback(null), 5000);
+    return () => clearTimeout(timer);
+  }, [feedback]);
+
   // Reset confirmation modal state
   const [resetTarget,  setResetTarget]  = useState(null);
   const [resetLoading, setResetLoading] = useState(false);
@@ -35,15 +42,27 @@ export default function ActuariesPage() {
   const load = useCallback((params = {}) => {
     setLoading(true);
     setFetchError(null);
-    const queryParams = { page: 1, pageSize: 100, ...params };
+    // Don't send 'position' to the backend — it's a derived field (is_supervisor/is_agent)
+    const { position: _pos, ...apiParams } = params;
+    const queryParams = { page: 1, page_size: 100, ...apiParams };
     actuariesApi.getAll(queryParams)
       .then(res => {
         const list = Array.isArray(res) ? res : res?.data ?? [];
-        setActuaries(list);
+        setAllActuaries(list);
       })
       .catch(err => setFetchError(err?.response?.data?.error ?? err?.message ?? 'Greška pri učitavanju aktuara.'))
       .finally(() => setLoading(false));
   }, []);
+
+  // Client-side position filter
+  const actuaries = useMemo(() => {
+    const pos = filters.position.trim().toLowerCase();
+    if (!pos) return allActuaries;
+    return allActuaries.filter(a => {
+      const label = a.is_supervisor ? 'supervizor' : a.is_agent ? 'agent' : '';
+      return label.includes(pos);
+    });
+  }, [allActuaries, filters.position]);
 
   // Initial load
   useLayoutEffect(() => {
@@ -75,7 +94,7 @@ export default function ActuariesPage() {
     setLimitLoading(true);
     try {
       await actuariesApi.changeLimit(selectedActuary.id, newLimit);
-      setActuaries(prev =>
+      setAllActuaries(prev =>
         prev.map(a => a.id === selectedActuary.id ? { ...a, limit: newLimit } : a)
       );
       setFeedback({ type: 'uspeh', text: 'Limit je uspešno promenjen.' });
@@ -95,7 +114,7 @@ export default function ActuariesPage() {
     setResetLoading(true);
     try {
       await actuariesApi.resetUsedLimit(resetTarget.id);
-      setActuaries(prev =>
+      setAllActuaries(prev =>
         prev.map(a => a.id === resetTarget.id ? { ...a, used_limit: 0 } : a)
       );
       setFeedback({ type: 'uspeh', text: `Iskorišćen limit za ${resetTarget.first_name} ${resetTarget.last_name} je resetovan.` });

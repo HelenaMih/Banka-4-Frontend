@@ -24,6 +24,11 @@ export default function LimitModal({ open, onClose, onConfirm, actuary, loading 
       setError('Unesite validan limit (pozitivan broj).');
       return;
     }
+    const usedLimit = actuary?.used_limit ?? 0;
+    if (parsed < usedLimit) {
+      setError(`Novi limit ne sme biti manji od iskorišćenog limita (${usedLimit.toLocaleString('sr-RS')} RSD).`);
+      return;
+    }
     setError(null);
     await onConfirm(parsed);
   }
@@ -46,6 +51,12 @@ export default function LimitModal({ open, onClose, onConfirm, actuary, loading 
               {actuary?.limit?.toLocaleString('sr-RS')} RSD
             </div>
           </div>
+          <div className={styles.field}>
+            <label>Iskorišćen limit</label>
+            <div className={styles.currentLimit}>
+              {(actuary?.used_limit ?? 0).toLocaleString('sr-RS')} RSD
+            </div>
+          </div>
 
           <div className={styles.field}>
             <label>
@@ -66,7 +77,7 @@ export default function LimitModal({ open, onClose, onConfirm, actuary, loading 
               Otkaži
             </button>
             <button type="submit" className={styles.btnPrimary} disabled={loading}>
-              {loading ? 'Čuvanje...' : 'Potvrdi'}
+              {loading ? 'Čuvanje...' : 'Sačuvaj'}
             </button>
           </div>
         </form>

@@ -172,19 +172,18 @@ export default function TaxPage() {
           <TaxTable
             users={filteredUsers}
             loading={loading}
-            onRunCalculation={(user) => { setModalUser(user); setRunAll(false); }}
           />
         </div>
 
       </main>
 
-      {(modalUser || runAll) && (
+      {runAll && (
         <TaxCalculationModal
-          user={modalUser}
-          bulk={runAll}
+          user={null}
+          bulk={true}
           loading={calculating}
           onConfirm={handleRunCalculation}
-          onClose={() => { setModalUser(null); setRunAll(false); }}
+          onClose={() => setRunAll(false)}
         />
       )}
     </div>

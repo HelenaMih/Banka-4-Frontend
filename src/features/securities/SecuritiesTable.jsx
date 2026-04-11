@@ -28,7 +28,8 @@ export default function SecuritiesTable({
   sortDir,
   onSort,
 }) {
-  const isOption = securities.length > 0 && securities[0].type === 'OPTION';
+  const isOption  = securities.length > 0 && securities[0].type === 'OPTION';
+  const isFutures = securities.length > 0 && securities[0].type === 'FUTURES';
 
   function SortIcon({ col }) {
     const active = sortBy === col;
@@ -82,7 +83,7 @@ export default function SecuritiesTable({
             <th className={styles.th}>Ask</th>
             {isOption && <th className={styles.th}>Strike</th>}
             {isOption && <th className={styles.th}>OI</th>}
-            {isOption && <th className={styles.th}>Datum isteka</th>}
+            {(isOption || isFutures) && <th className={styles.th}>Datum isteka</th>}
             {!isOption && <Th col="maintenanceMargin">Maint. Margin</Th>}
             {!isOption && <th className={styles.th}>Init. Margin Cost</th>}
             {onAction && <th className={styles.th}></th>}
@@ -119,7 +120,15 @@ export default function SecuritiesTable({
                 <td className={styles.td}>{fmt(sec.ask)}</td>
                 {isOption && <td className={styles.td}>{fmt(sec.strike)} {sec.currency}</td>}
                 {isOption && <td className={styles.td}>{fmtVol(sec.openInterest)}</td>}
-                {isOption && <td className={styles.td}>{sec.settlementDate || '—'}</td>}
+                {(isOption || isFutures) && (
+                  <td className={styles.td}>
+                    {sec.settlementDate
+                      ? new Date(sec.settlementDate) < new Date()
+                        ? <span style={{ color: 'var(--red, #ef4444)', fontWeight: 600 }}>{sec.settlementDate} (istekao)</span>
+                        : sec.settlementDate
+                      : '—'}
+                  </td>
+                )}
                 {!isOption && (
                 <td className={styles.td}>
                   {sec.type === 'FOREX'
