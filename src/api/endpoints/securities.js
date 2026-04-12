@@ -201,7 +201,7 @@ export const securitiesApi = {
   },
 
   getStockById(id, daysBack = 1825) {
-    return api.get(`/listings/stock/${id}`, { params: { days_back: daysBack } }).then(res => {
+    return api.get(`/listings/stocks/${id}`, { params: { days_back: daysBack } }).then(res => {
       const s = unpack(res);
       const mapped = mapStock(s);
       const withHistory = attachHistory(mapped, s.history);

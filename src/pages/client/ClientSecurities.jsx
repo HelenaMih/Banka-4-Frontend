@@ -413,7 +413,12 @@ export default function ClientSecurities() {
 
   const { data: rawData, loading, error, refetch } = useFetch(fetcher, [activeTab]);
 
-  const securities = Array.isArray(rawData) ? rawData : [];
+const securities = Array.isArray(rawData)
+  ? rawData
+  : rawData?.data ?? [];
+
+//console.log('RAW DATA:', rawData);
+//console.log('SECURITIES:', securities);
 
   const filtered = useMemo(() => applyFilters(securities, filters, search), [securities, filters, search]);
   const sorted   = useMemo(() => applySort(filtered, sortBy, sortDir), [filtered, sortBy, sortDir]);
