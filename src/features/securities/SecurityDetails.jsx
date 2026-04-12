@@ -197,6 +197,7 @@ export default function SecurityDetails({ security, isEmployee, onAction, onRefr
         <section className={`sd-anim ${styles.optionsSection}`}>
           <h3 className={styles.sectionTitle}>Opcije</h3>
           <OptionTable
+            key={security.id}
             options={options}
             currentPrice={price}
             canExercise={isEmployee}

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import styles from './OptionTable.module.css';
+import React from "react";
 
 function fmt(n, d = 2) {
   if (n == null) return '—';
@@ -19,7 +20,7 @@ function daysUntil(dateStr) {
 
 export default function OptionTable({ options, currentPrice, canExercise }) {
   const [selectedExpiry, setSelectedExpiry] = useState(options[0]?.settlementDate ?? null);
-  const [strikeCount, setStrikeCount] = useState(4); // how many strikes above/below shared price
+  const [strikeCount, setStrikeCount] = useState(4); 
 
   const expiryGroup = useMemo(
     () => options.find(g => g.settlementDate === selectedExpiry),
@@ -28,24 +29,22 @@ export default function OptionTable({ options, currentPrice, canExercise }) {
 
   const allStrikes = expiryGroup?.strikes ?? [];
 
-  // Find index of strike closest to currentPrice
   const sharedIdx = useMemo(() => {
-    if (!allStrikes.length) return -1;
-    let closest = 0;
-    let minDiff = Infinity;
-    allStrikes.forEach((s, i) => {
-      const diff = Math.abs(s.strike - currentPrice);
-      if (diff < minDiff) { minDiff = diff; closest = i; }
-    });
-    return closest;
+    const idx = allStrikes.findIndex(s => s.strike >= currentPrice);
+    if (idx === -1) return allStrikes.length; 
+    return idx;
   }, [allStrikes, currentPrice]);
 
-  // Slice strikes around shared price
   const visibleStrikes = useMemo(() => {
-    if (sharedIdx < 0) return allStrikes;
-    const from = Math.max(0, sharedIdx - strikeCount);
-    const to   = Math.min(allStrikes.length - 1, sharedIdx + strikeCount);
-    return allStrikes.slice(from, to + 1);
+    if (!allStrikes.length) return [];
+
+    const above = allStrikes.slice(0, sharedIdx);  
+    const below = allStrikes.slice(sharedIdx);     
+
+    const visAbove = above.slice(-strikeCount);    
+    const visBelow = below.slice(0, strikeCount);  
+
+    return [...visAbove, ...visBelow];
   }, [allStrikes, sharedIdx, strikeCount]);
 
   const now = new Date();
@@ -61,6 +60,8 @@ export default function OptionTable({ options, currentPrice, canExercise }) {
       </div>
     );
   }
+
+  const firstBelowStrike = visibleStrikes.find(s => s.strike >= currentPrice);
 
   return (
     <div className={styles.wrapper}>
@@ -125,23 +126,23 @@ export default function OptionTable({ options, currentPrice, canExercise }) {
             </tr>
           </thead>
           <tbody>
-            {visibleStrikes.map((row, rowIdx) => {
-              const globalIdx = allStrikes.indexOf(row);
-              const isSharedRow = globalIdx === sharedIdx;
-              const isITMCall  = row.strike < currentPrice; // Call ITM when strike < price
-              const isITMPut   = row.strike > currentPrice; // Put ITM when strike > price
+            {visibleStrikes.map((row) => {
+              const isFirstBelow = row === firstBelowStrike;
+              const isITMCall  = row.strike < currentPrice;
+              const isITMPut   = row.strike > currentPrice;
               const canEx      = canExerciseOption(row);
 
               return (
-                <>
-                  {isSharedRow && (
-                    <tr key={`shared-${row.strike}`} className={styles.sharedRow}>
+                <React.Fragment key={row.strike}>
+                  {/* Banner se prikazuje PRE prvog strike-a ispod currentPrice */}
+                  {isFirstBelow && (
+                    <tr className={styles.sharedRow}>
                       <td colSpan={canExercise ? 14 : 13} className={styles.sharedCell}>
                         ▼ Shared Price: <strong>${fmt(currentPrice)}</strong>
                       </td>
                     </tr>
                   )}
-                  <tr key={row.strike} className={styles.optionRow}>
+                  <tr className={styles.optionRow}>
                     {/* CALLS */}
                     <td className={`${styles.td} ${isITMCall ? styles.itm : styles.otm}`}>{fmt(row.call?.last)}</td>
                     <td className={`${styles.td} ${isITMCall ? styles.itm : styles.otm}`}>{fmt(row.call?.theta, 4)}</td>
@@ -174,7 +175,7 @@ export default function OptionTable({ options, currentPrice, canExercise }) {
                       </td>
                     )}
                   </tr>
-                </>
+                </React.Fragment>
               );
             })}
           </tbody>
