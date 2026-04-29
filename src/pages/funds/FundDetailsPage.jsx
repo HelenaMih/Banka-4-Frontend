@@ -61,17 +61,27 @@ export default function FundDetailsPage() {
       try {
         setLoading(true);
         setError(null);
-        const [resDetails, resAssets] = await Promise.all([
-          investmentFundsApi.getFundDetails(id),
-          investmentFundsApi.getFundAssets(id),
-        ]);
-        const fundData   = resDetails?.data ?? resDetails;
-        const assetsData = Array.isArray(resAssets?.data ?? resAssets)
-          ? (resAssets?.data ?? resAssets)
-          : [];
+
+        // Fund details are mandatory — if this fails we show the error page.
+        const resDetails = await investmentFundsApi.getFundDetails(id);
+        const fundData = resDetails?.data ?? resDetails;
+
+        // Assets are optional — a 4xx here should not break the whole page.
+        let assetsData = [];
+        try {
+          const resAssets = await investmentFundsApi.getFundAssets(id);
+          const raw = resAssets?.data ?? resAssets;
+          assetsData = Array.isArray(raw) ? raw : [];
+        } catch {
+          // assets endpoint not yet available or returned an error — show empty table
+        }
+
         computeAndSet(fundData, assetsData);
-      } catch {
-        setError('Greška pri učitavanju fonda. Proverite vezu sa serverom.');
+      } catch (err) {
+        setError(
+          err?.message ||
+          'Greška pri učitavanju fonda. Proverite vezu sa serverom.'
+        );
       } finally {
         setLoading(false);
       }
@@ -98,14 +108,18 @@ export default function FundDetailsPage() {
 
   const reload = async () => {
     try {
-      const [resDetails, resAssets] = await Promise.all([
-        investmentFundsApi.getFundDetails(id),
-        investmentFundsApi.getFundAssets(id),
-      ]);
-      const fundData   = resDetails?.data ?? resDetails;
-      const assetsData = Array.isArray(resAssets?.data ?? resAssets)
-        ? (resAssets?.data ?? resAssets)
-        : [];
+      const resDetails = await investmentFundsApi.getFundDetails(id);
+      const fundData = resDetails?.data ?? resDetails;
+
+      let assetsData = [];
+      try {
+        const resAssets = await investmentFundsApi.getFundAssets(id);
+        const raw = resAssets?.data ?? resAssets;
+        assetsData = Array.isArray(raw) ? raw : [];
+      } catch {
+        // assets unavailable — keep empty
+      }
+
       computeAndSet(fundData, assetsData);
     } catch {
       // silently ignore reload errors
