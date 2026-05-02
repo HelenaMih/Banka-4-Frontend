@@ -74,6 +74,7 @@ function OrderModal({ security, activeTab, isEmployee, isSupervisor, onClose }) 
   const [buyForFund, setBuyForFund] = useState(false);
   const [fundId, setFundId] = useState('');
   const [buyForBank, setBuyForBank] = useState(false);
+  const submittingRef = useRef(false);
 
   const clientId = useAuthStore(s => s.user?.client_id ?? s.user?.id);
 
@@ -237,6 +238,8 @@ function OrderModal({ security, activeTab, isEmployee, isSupervisor, onClose }) 
   }
 
   async function handleConfirmSubmit() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setError('');
 
@@ -262,6 +265,7 @@ function OrderModal({ security, activeTab, isEmployee, isSupervisor, onClose }) 
       setError(err?.message || 'Greška pri kupovini. Pokušajte ponovo.');
       setShowConfirm(false);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }

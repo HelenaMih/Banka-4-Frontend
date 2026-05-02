@@ -157,7 +157,7 @@ export default function App() {
         <Route path="/admin/clients" element={<ProtectedRoute><EmployeeRoute><ClientsPortal /></EmployeeRoute></ProtectedRoute>} />
         <Route path="/admin/loans"   element={<ProtectedRoute><EmployeeRoute><LoansPortal   /></EmployeeRoute></ProtectedRoute>} />
         <Route path="/tax" element={<ProtectedRoute><EmployeeRoute><TaxPage /></EmployeeRoute></ProtectedRoute>} />
-        <Route path="/admin/actuaries" element={<ProtectedRoute><EmployeeRoute><ActuariesPage /></EmployeeRoute></ProtectedRoute>} />
+        <Route path="/admin/actuaries" element={<ProtectedRoute><SupervisorRoute><ActuariesPage /></SupervisorRoute></ProtectedRoute>} />
         <Route path="/admin/exchanges" element={<ProtectedRoute><EmployeeRoute><ExchangesPage /></EmployeeRoute></ProtectedRoute>} />
         <Route path="/securities" element={<ProtectedRoute><EmployeeRoute><ClientSecurities /></EmployeeRoute></ProtectedRoute>} />
         <Route path="/employees" element={
