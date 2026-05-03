@@ -1,4 +1,4 @@
-import { buildStocks, buildFutures, buildForex, loginAs, agentUser } from './helpers';
+import { buildStocks, buildFuturesList as buildFutures, buildForex, loginAs, agentUser } from './helpers';
 
 describe('Scenario 11: Aktuar vidi sve podržane tipove hartija', () => {
   beforeEach(() => {
