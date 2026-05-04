@@ -1,52 +1,59 @@
-import {
-    clientUser,
-    loginAs,
-    interceptClientPortfolio,
-    interceptClientAccounts,
-    msftStock,
-} from './helpers';
-
 /**
  * Scenario 37 – Korisnik ne može prodati više hartija nego što poseduje
  *
- * Given  korisnik ima 10 akcija MSFT u portfoliju
- * When   pokuša da kreira SELL order za 15 akcija
+ * Given  korisnik ima određenu količinu hartija u portfoliju (sa backenda)
+ * When   pokuša da unese veću količinu od posedovane
  * Then   sistem prikazuje validacionu grešku
- * And    order se ne može poslati (Nastavi je disabled)
+ * And    dugme "Nastavi" ostaje onemogućeno
  */
 describe('Scenario 37: Korisnik ne može prodati više hartija nego što poseduje', () => {
+    
     beforeEach(() => {
-        interceptClientAccounts();
-        // msftStock has amount: 10
-        interceptClientPortfolio([msftStock]);
-        loginAs(clientUser, '/client/portfolio');
-        cy.wait('@getPortfolio');
+        cy.loginAsClient();
+        cy.visit('/client/portfolio');
     });
 
-    it('prikazuje grešku kada korisnik upiše više od posedovanog broja akcija', () => {
-        cy.contains('button', 'SELL').first().click({ force: true });
+    it('validacija količine: prikazuje grešku i onemogućava nastavak', () => {
+        cy.get('table').should('be.visible');
 
-        // Enter a quantity that exceeds the owned amount (10)
-        cy.get(`input[placeholder*="Max"]`).type('15');
+        cy.get('table tbody tr').first().then(($row) => {
+            // Uzimamo vrednost iz 3. kolone (indeks 2)
+            const ownedAmountText = $row.find('td').eq(2).text().trim();
+            const ownedAmount = parseFloat(ownedAmountText);
+            const tooMuch = ownedAmount + 1;
 
-        // Validation error message must appear
-        cy.contains(/Nemate dovoljno\. Posedujete: 10\./i).should('be.visible');
+            cy.wrap($row).find('button').contains('SELL').click({ force: true });
+
+            // POPRAVKA: Tražimo input koji je tipa 'number' ili ima specifičan atribut
+            // Ako ovo ne upali, probaj: cy.get('input[type="number"]')
+            cy.get('input').filter('[type="number"], [name*="quantity"], [placeholder*="količina"]')
+                .filter(':visible')
+                .first()
+                .as('quantityInput');
+
+            cy.get('@quantityInput')
+                .should('be.visible')
+                .clear() // Sada će čistiti pravo polje
+                .type(tooMuch.toString());
+
+            // Provera poruke o grešci
+            cy.contains(/nemate dovoljno|posedujete|iznos premašuje/i, { timeout: 6000 })
+                .should('be.visible');
+
+            // Dugme Nastavi mora biti disabled
+            cy.contains('button', /Nastavi/i).should('be.disabled');
+        });
     });
 
-    it('dugme Nastavi je onemogućeno kada je količina veća od posedovane', () => {
+    it('forma ne prelazi na potvrdu čak i uz forsirani klik', () => {
+        cy.get('table').should('be.visible');
         cy.contains('button', 'SELL').first().click({ force: true });
-        cy.get(`input[placeholder*="Max"]`).type('15');
 
-        // The submit button must be disabled so the order cannot be sent
-        cy.contains('button', 'Nastavi').should('be.disabled');
-    });
+        // Koristimo isti precizniji selektor
+        cy.get('input[type="number"]').filter(':visible').first().clear().type('9999999');
 
-    it('forma ne prelazi na korak za potvrdu kada je količina prevelika', () => {
-        cy.contains('button', 'SELL').first().click({ force: true });
-        cy.get(`input[placeholder*="Max"]`).type('15');
+        cy.contains('button', /Nastavi/i).click({ force: true });
 
-        // Even a forced click must not advance to the confirmation screen
-        cy.contains('button', 'Nastavi').click({ force: true });
-        cy.contains('Potvrda prodaje').should('not.exist');
+        cy.contains(/Potvrda/i).should('not.exist');
     });
 });

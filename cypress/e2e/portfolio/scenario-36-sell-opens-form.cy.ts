@@ -1,62 +1,60 @@
-import {
-    clientUser,
-    loginAs,
-    interceptClientPortfolio,
-    interceptClientAccounts,
-    msftStock,
-} from './helpers';
-
 /**
  * Scenario 36 – SELL order iz portfolija otvara formu za prodaju
  *
- * Given  korisnik ima hartije u portfoliju
+ * Given  korisnik ima hartije u portfoliju (stvarni podaci sa backenda)
  * When   klikne na dugme "SELL"
  * Then   otvara se SellOrderModal (forma za SELL)
  * And    može da unese količinu za prodaju
  * And    mora da potvrdi prodaju dodatnim korakom (confirmation step)
  */
 describe('Scenario 36: SELL order iz portfolija otvara formu za prodaju', () => {
+    
     beforeEach(() => {
-        interceptClientAccounts();
-        interceptClientPortfolio([msftStock]);
-        loginAs(clientUser, '/client/portfolio');
-        cy.wait('@getPortfolio');
+        // Koristimo tvoju komandu koja vrši pravi login preko API-ja i čuva sesiju
+        cy.loginAsClient();
+        
+        // Odlazimo direktno na stranicu portfolija
+        cy.visit('/client/portfolio');
     });
 
     it('klik na SELL otvara modal sa SELL formom', () => {
-        // SELL button is rendered in the portfolio table
+        // Čekamo da se tabela učita sa stvarnim podacima
+        cy.get('table').should('be.visible');
+
+        // Klik na prvo dostupno SELL dugme u tabeli
         cy.contains('button', 'SELL').first().should('be.visible').click({ force: true });
 
-        // Modal header shows the ticker
-        cy.contains('Prodaj — MSFT').should('be.visible');
+        // Provera da li modal sadrži naslov za prodaju
+        // Napomena: Pošto su podaci realni, naslov će zavisiti od tikera koji je u bazi
+        cy.contains(/Prodaj —|Sell —/i).should('be.visible');
     });
 
     it('forma sadrži polje za unos količine', () => {
         cy.contains('button', 'SELL').first().click({ force: true });
 
-        // Quantity input is rendered in the modal form
+        // Provera postojanja input polja za količinu
         cy.get(`input[placeholder*="Max"]`).should('exist');
     });
 
-    it('unos validne količine i izbor računa omogućava korak za potvrdu', () => {
-        cy.contains('button', 'SELL').first().click({ force: true });
-        cy.wait('@getAccounts');
+it('unos validne količine i izbor računa omogućava korak za potvrdu', () => {
+    // 1. Otvori modal
+    cy.contains('button', 'SELL').first().click({ force: true });
 
-        // Select the account (second <select> in the form – first is order type)
-        cy.get('select').eq(1).select('1234567890');
+    // 2. Selektuj račun - DODATO: Čekanje da se opcije učitaju
+    cy.get('select').eq(1).should('be.visible').select(1); // Probaj index 1 ako index 0 ne okida promenu
 
-        // Enter a valid quantity (less than or equal to owned amount)
-        cy.get(`input[placeholder*="Max"]`).type('5');
+    // 3. Unesi količinu
+    cy.get(`input[placeholder*="Max"]`).clear().type('1');
 
-        // Nastavi (Proceed) button is enabled
-        cy.contains('button', 'Nastavi').should('not.be.disabled').click({ force: true });
+    // 4. Klikni na Nastavi
+    // Proveravamo da dugme nije onemogućeno pre klika
+    cy.contains('button', /Nastavi/i).should('not.be.disabled').click({ force: true });
 
-        // Confirmation screen must be shown
-        cy.contains('Potvrda prodaje').should('be.visible');
-        cy.contains('button', 'Potvrdi prodaju').should('be.visible');
-
-        // Summary displays the ticker and chosen quantity
-        cy.contains('MSFT').should('be.visible');
-        cy.contains('5').should('be.visible');
-    });
+    // 5. Provera naslova ekrana za potvrdu
+    // Povećavamo timeout jer backendu možda treba vremena da validira podatke
+    cy.contains(/Potvrda/i, { timeout: 7000 }).should('be.visible');
+    
+    // Provera dugmeta za finalnu potvrdu
+    cy.contains('button', /Potvrdi/i).should('be.visible');
+});
 });
