@@ -315,15 +315,31 @@ export default function ProfitBankPage() {
   // ── Sell fund asset (supervisor) ────────────────────────────────────────
   async function handleSellAsset() {
     if (!sellModal) return;
+
+    // Require a valid quantity — do not fall back to an arbitrary default
+    const quantity = Number(sellModal.volume ?? sellModal.quantity ?? sellModal.amount);
+    if (!quantity || quantity <= 0) {
+      setSellFeedback({ type: 'greska', text: 'Nije moguće odrediti količinu hartije za prodaju.' });
+      return;
+    }
+
     setSellSubmitting(true);
     setSellFeedback(null);
+
+    const ticker = sellModal.ticker ?? sellModal.symbol;
+
     try {
       await investmentFundsApi.sellFundAsset(selectedFundId, sellModal.id ?? sellModal.asset_id, {
-        quantity: sellModal.volume ?? sellModal.quantity ?? sellModal.amount ?? 1,
+        quantity,
       });
-      setSellFeedback({ type: 'uspeh', text: `Hartija ${sellModal.ticker ?? sellModal.symbol ?? ''} je uspešno prodata.` });
+
+      setSellFeedback({
+        type: 'uspeh',
+        text: ticker ? `Hartija ${ticker} je uspešno prodata.` : 'Hartija je uspešno prodata.',
+      });
       setSellModal(null);
-      // Refresh assets
+
+      // Refresh assets list
       setFundAssets(null);
       setFundAssetsLoading(true);
       investmentFundsApi
