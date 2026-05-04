@@ -7,6 +7,10 @@ export const investmentFundsApi = {
   getFunds: (params = {}) =>
     tradingApi.get('/investment-funds', { params }),
 
+  // Swagger: GET /api/funds — all investment funds (public list)
+  getAllFunds: (params = {}) =>
+    tradingApi.get('/funds', { params }),
+
   getFundDetails: (fundId) =>
     tradingApi.get(`/investment-funds/${fundId}`),
 
@@ -30,6 +34,14 @@ export const investmentFundsApi = {
 
   sellFundAsset: (fundId, assetId, payload) =>
     tradingApi.post(`/investment-funds/${fundId}/assets/${assetId}/sell`, payload),
+
+  // Swagger: GET /api/profit/funds — investment fund positions/profits
+  getFundProfits: () =>
+    tradingApi.get('/profit/funds'),
+
+  // Swagger: GET /api/actuary/{actId}/assets/funds — funds managed by actuary
+  getFundsManagedByActuary: (actId) =>
+    tradingApi.get(`/actuary/${actId}/assets/funds`),
 
   getActuaryPerformances: () =>
     tradingApi.get('/profit-bank/actuaries'),

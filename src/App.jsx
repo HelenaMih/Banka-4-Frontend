@@ -42,6 +42,8 @@ import ClientPaymentOverview from './pages/client/ClientPaymentOverview';
 import NewPayment       from './pages/client/NewPayment';
 import ClientSecurities from './pages/client/ClientSecurities';
 import ClientPortfolioPage from './pages/client/ClientPortfolioPage';
+import FundListPage from './pages/client/FundListPage';
+import FundDetailsPage from './pages/client/FundDetailsPage';
 
 // Shared
 import NotFound from './pages/NotFound';
@@ -129,6 +131,8 @@ export default function App() {
         <Route path="/client/securities" element={<ProtectedRoute><ClientRoute><ClientSecurities /></ClientRoute></ProtectedRoute>} />
         <Route path="/transfers/history"   element={<ProtectedRoute><ClientRoute><ClientTransferHistory /></ClientRoute></ProtectedRoute>} />
         <Route path="/client/portfolio" element={<ProtectedRoute><ClientRoute><ClientPortfolioPage /></ClientRoute></ProtectedRoute>} />
+        <Route path="/client/investment-funds" element={<ProtectedRoute><ClientRoute><FundListPage /></ClientRoute></ProtectedRoute>} />
+        <Route path="/client/investment-funds/:id" element={<ProtectedRoute><ClientRoute><FundDetailsPage /></ClientRoute></ProtectedRoute>} />
 
         {/* ADMIN/EMPLOYEE RUTE */}
         <Route path="/admin"       element={<ProtectedRoute><EmployeeRoute><Dashboard      /></EmployeeRoute></ProtectedRoute>} />

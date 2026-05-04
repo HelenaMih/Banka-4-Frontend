@@ -1,0 +1,478 @@
+.stranica {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.sadrzaj {
+  flex: 1;
+  padding: 36px 40px;
+  max-width: 1360px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ── Breadcrumb ── */
+.breadcrumb {
+  font-size: 12px;
+  color: var(--tx-3);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.breadcrumbSep { color: var(--border); }
+
+.breadcrumbAktivna { color: var(--tx-2); }
+
+.breadcrumbLink {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--blue);
+  font-size: 12px;
+  font-family: var(--font);
+}
+
+.breadcrumbLink:hover { text-decoration: underline; }
+
+.btnBack {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--tx-2);
+  font-size: 13px;
+  font-family: var(--font);
+  margin-bottom: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.btnBack:hover { color: var(--blue); }
+
+/* ── Card ── */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  margin-top: 20px;
+  overflow: hidden;
+}
+
+.cardHeader {
+  padding: 24px 28px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tx-2);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.fundTitle {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--tx-1);
+  letter-spacing: -0.3px;
+  margin: 0 0 8px;
+}
+
+.fundDesc {
+  font-size: 14px;
+  color: var(--tx-2);
+  margin: 0;
+  line-height: 1.55;
+  max-width: 560px;
+}
+
+/* ── Section header ── */
+.sectionHeader {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--tx-1);
+  margin: 0;
+}
+
+/* ── Metrics grid ── */
+.detailGrid {
+  padding: 24px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.infoItem {
+  padding: 14px 16px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.infoLabel {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--tx-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.infoValue {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tx-1);
+}
+
+.infoNote {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--tx-3);
+  font-style: italic;
+}
+
+/* ── Table ── */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.table thead th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 11px;
+  color: var(--tx-2);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.table tbody td {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--tx-1);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td { border-bottom: none; }
+
+.ticker {
+  font-weight: 700;
+  color: var(--tx-1);
+}
+
+.positive { color: var(--green); font-weight: 600; }
+.negative { color: var(--red);   font-weight: 600; }
+
+.emptyTable {
+  text-align: center;
+  color: var(--tx-3);
+  font-size: 14px;
+  padding: 32px 16px !important;
+}
+
+.loadingState {
+  text-align: center;
+  color: var(--tx-3);
+  font-size: 14px;
+  padding: 32px 16px;
+}
+
+/* ── Performance placeholder ── */
+.placeholderSection {
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.placeholderIcon {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+
+.placeholderText {
+  font-size: 14px;
+  color: var(--tx-3);
+  margin: 0 0 24px;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.placeholderGrid {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.placeholderCard {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  min-width: 120px;
+}
+
+.placeholderCard span {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--tx-3);
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.placeholderCard strong {
+  font-size: 20px;
+  color: var(--tx-2);
+}
+
+/* ── Action buttons ── */
+.actionRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  height: 42px;
+  padding: 0 20px;
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition);
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(27, 79, 216, 0.3);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: var(--navy-mid);
+  box-shadow: 0 4px 16px rgba(27, 79, 216, 0.4);
+  transform: translateY(-1px);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition);
+  background: transparent;
+  color: var(--tx-2);
+  border: 1.5px solid var(--border);
+}
+
+.btnGhost:hover:not(:disabled) {
+  border-color: var(--blue);
+  color: var(--blue);
+  background: var(--blue-dim);
+}
+
+.btnGhost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Modal ── */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1000;
+}
+
+.modalCard {
+  width: 100%;
+  max-width: 520px;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15);
+  padding: 28px 32px;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--tx-1);
+}
+
+.modalText {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--tx-2);
+}
+
+.closeIconButton {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--tx-3);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ── Form fields ── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tx-2);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  background: var(--input-bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--tx-1);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  outline: none;
+  appearance: none;
+  box-sizing: border-box;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: var(--border-focus);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(27, 79, 216, 0.1);
+}
+
+.fieldHint {
+  font-size: 12px;
+  color: var(--tx-3);
+  margin: 0;
+}
+
+.required { color: var(--red); }
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+/* ── Misc ── */
+.center {
+  display: flex;
+  justify-content: center;
+  padding: 4rem;
+}
+
+@media (max-width: 1000px) {
+  .detailGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .sadrzaj {
+    padding: 24px 16px;
+  }
+
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .cardHeader {
+    flex-direction: column;
+  }
+
+  .modalCard {
+    padding: 24px 20px;
+  }
+}
