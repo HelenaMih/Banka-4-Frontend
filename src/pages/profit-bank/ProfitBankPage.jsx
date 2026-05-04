@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
 import Navbar from '../../components/layout/Navbar';
 import Alert from '../../components/ui/Alert';
@@ -6,6 +6,7 @@ import { useFetch } from '../../hooks/useFetch';
 import { investmentFundsApi } from '../../api/endpoints/investmentFunds';
 import { accountsApi } from '../../api/endpoints/accounts';
 import { portfolioApi } from '../../api/endpoints/portfolio';
+import { getErrorMessage } from '../../utils/apiError';
 import styles from './ProfitBankPage.module.css';
 
 const TAB = {
@@ -36,6 +37,21 @@ export default function ProfitBankPage() {
     bankAccountNumber: '',
     amount: '',
   });
+
+  // Fund assets (holdings)
+  const [fundAssets, setFundAssets] = useState(null);
+  const [fundAssetsLoading, setFundAssetsLoading] = useState(false);
+
+  // Sell modal for supervisor
+  const [sellModal, setSellModal] = useState(null); // asset object
+  const [sellSubmitting, setSellSubmitting] = useState(false);
+  const [sellFeedback, setSellFeedback] = useState(null);
+
+  // Fund profit row from GET /profit/funds
+  const [fundProfitRow, setFundProfitRow] = useState(null);
+
+  // Performance data
+  const [fundPerformance, setFundPerformance] = useState(null);
 
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
@@ -88,6 +104,59 @@ export default function ProfitBankPage() {
     loading: actuaryPortfolioLoading,
   } = useFetch(() => portfolioApi.getActuaryPortfolio(), []);
 
+  // Load fund assets (holdings) whenever a fund is selected
+  useEffect(() => {
+    if (!selectedFundId) {
+      setFundAssets(null);
+      return;
+    }
+    let alive = true;
+    setFundAssetsLoading(true);
+    setFundAssets(null);
+    investmentFundsApi
+      .getFundAssets(selectedFundId)
+      .then(res => {
+        if (!alive) return;
+        const list = Array.isArray(res) ? res : res?.data ?? res?.content ?? [];
+        setFundAssets(list);
+      })
+      .catch(() => {
+        // Endpoint may not exist yet — graceful fallback to empty list
+        if (alive) setFundAssets([]);
+      })
+      .finally(() => { if (alive) setFundAssetsLoading(false); });
+    return () => { alive = false; };
+  }, [selectedFundId]);
+
+  // Load fund profit row from GET /profit/funds
+  useEffect(() => {
+    if (!selectedFundId) { setFundProfitRow(null); return; }
+    let alive = true;
+    investmentFundsApi
+      .getFundProfits()
+      .then(res => {
+        if (!alive) return;
+        const list = Array.isArray(res) ? res : res?.data ?? [];
+        const row = list.find(
+          p => String(p?.fund_id ?? p?.fundId ?? p?.id) === String(selectedFundId)
+        );
+        setFundProfitRow(row ?? null);
+      })
+      .catch(() => { /* non-fatal — backend may not have this endpoint */ });
+    return () => { alive = false; };
+  }, [selectedFundId]);
+
+  // Load performance for selected fund
+  useEffect(() => {
+    if (!selectedFundId) { setFundPerformance(null); return; }
+    let alive = true;
+    investmentFundsApi
+      .getFundPerformance(selectedFundId)
+      .then(res => { if (alive) setFundPerformance(res); })
+      .catch(() => { /* endpoint not yet available */ });
+    return () => { alive = false; };
+  }, [selectedFundId]);
+
   const actuaries = useMemo(() => {
     const raw = Array.isArray(actuariesResponse)
       ? actuariesResponse
@@ -127,6 +196,28 @@ export default function ProfitBankPage() {
       ? actuaryPortfolioResponse
       : actuaryPortfolioResponse?.data ?? [];
   }, [actuaryPortfolioResponse]);
+
+  // Derived fund value: liquidity + sum(price * volume of all holdings)
+  const derivedFundValue = useMemo(() => {
+    if (!selectedFund) return null;
+    const liquidity = Number(selectedFund.liquidity_rsd ?? 0);
+    if (!fundAssets?.length) return liquidity || null;
+    const holdingsValue = fundAssets.reduce((sum, a) => {
+      const price = Number(a.price ?? a.current_price ?? 0);
+      const volume = Number(a.volume ?? a.quantity ?? a.amount ?? 0);
+      return sum + price * volume;
+    }, 0);
+    return liquidity + holdingsValue;
+  }, [selectedFund, fundAssets]);
+
+  // Derived profit: fund value − sum(initialMarginCost)
+  const derivedProfit = useMemo(() => {
+    if (derivedFundValue == null || !fundAssets?.length) return null;
+    const totalMargin = fundAssets.reduce((sum, a) => {
+      return sum + Number(a.initialMarginCost ?? a.initial_margin_cost ?? 0);
+    }, 0);
+    return derivedFundValue - totalMargin;
+  }, [derivedFundValue, fundAssets]);
 
   function openFundAction(type, fund) {
     const firstBankAccount =
@@ -216,8 +307,53 @@ export default function ProfitBankPage() {
     } catch (err) {
       setFeedback({
         type: 'greska',
-        text: err?.message || 'Akcija nad fondom nije uspela.',
+        text: getErrorMessage(err, 'Akcija nad fondom nije uspela.'),
       });
+    }
+  }
+
+  // ── Sell fund asset (supervisor) ────────────────────────────────────────
+  async function handleSellAsset() {
+    if (!sellModal) return;
+
+    // Require a valid quantity — do not fall back to an arbitrary default
+    const quantity = Number(sellModal.volume ?? sellModal.quantity ?? sellModal.amount);
+    if (!quantity || quantity <= 0) {
+      setSellFeedback({ type: 'greska', text: 'Nije moguće odrediti količinu hartije za prodaju.' });
+      return;
+    }
+
+    setSellSubmitting(true);
+    setSellFeedback(null);
+
+    const ticker = sellModal.ticker ?? sellModal.symbol;
+
+    try {
+      await investmentFundsApi.sellFundAsset(selectedFundId, sellModal.id ?? sellModal.asset_id, {
+        quantity,
+      });
+
+      setSellFeedback({
+        type: 'uspeh',
+        text: ticker ? `Hartija ${ticker} je uspešno prodata.` : 'Hartija je uspešno prodata.',
+      });
+      setSellModal(null);
+
+      // Refresh assets list
+      setFundAssets(null);
+      setFundAssetsLoading(true);
+      investmentFundsApi
+        .getFundAssets(selectedFundId)
+        .then(res => {
+          const list = Array.isArray(res) ? res : res?.data ?? res?.content ?? [];
+          setFundAssets(list);
+        })
+        .catch(() => setFundAssets([]))
+        .finally(() => setFundAssetsLoading(false));
+    } catch (err) {
+      setSellFeedback({ type: 'greska', text: getErrorMessage(err, 'Prodaja nije uspela.') });
+    } finally {
+      setSellSubmitting(false);
     }
   }
 
@@ -499,6 +635,7 @@ export default function ProfitBankPage() {
               <div className={styles.loadingState}>Nema detalja fonda.</div>
             ) : (
               <>
+                {/* ── Info grid ── */}
                 <div className={styles.detailGrid}>
                   <InfoCard
                     label="Menadžer"
@@ -506,9 +643,136 @@ export default function ProfitBankPage() {
                   />
                   <InfoCard label="Udeo banke (%)" value={formatPercent(selectedFund.bank_share_percent)} />
                   <InfoCard label="Udeo banke (RSD)" value={formatRSD(selectedFund.bank_share_rsd)} />
-                  <InfoCard label="Profit u RSD" value={formatRSD(selectedFund.profit_rsd)} />
+                  <InfoCard
+                    label="Vrednost fonda"
+                    value={derivedFundValue != null ? formatRSD(derivedFundValue) : '—'}
+                  />
+                  <InfoCard
+                    label="Profit u RSD"
+                    value={
+                      derivedProfit != null
+                        ? formatRSD(derivedProfit)
+                        : formatRSD(
+                            fundProfitRow?.profit_rsd ??
+                            fundProfitRow?.profit ??
+                            selectedFund.profit_rsd ??
+                            null
+                          )
+                    }
+                  />
                   <InfoCard label="Dostupna likvidnost" value={formatRSD(selectedFund.liquidity_rsd)} />
                   <InfoCard label="Opis" value={selectedFund.description || '—'} />
+                </div>
+
+                <div className={styles.sectionDivider} />
+
+                {/* ── Holdings / Assets table ── */}
+                <div style={{ padding: '0 0 0 0' }}>
+                  <div style={{ padding: '16px 28px 12px' }}>
+                    <div className={styles.sectionEyebrow}>Sastav fonda</div>
+                    <h3 className={styles.subTitle} style={{ marginBottom: 0 }}>Hartije u fondu</h3>
+                  </div>
+
+                  {sellFeedback && (
+                    <div style={{ padding: '0 28px 12px' }}>
+                      <Alert tip={sellFeedback.type} poruka={sellFeedback.text} />
+                    </div>
+                  )}
+
+                  {fundAssetsLoading ? (
+                    <div className={styles.loadingState}>Učitavanje hartija...</div>
+                  ) : (
+                    <div className={styles.tableWrap}>
+                      <table className={styles.table}>
+                        <thead>
+                          <tr>
+                            <th>Ticker</th>
+                            <th>Cena</th>
+                            <th>Promena (%)</th>
+                            <th>Količina</th>
+                            <th>Inicijalna margina</th>
+                            <th>Datum nabavke</th>
+                            <th>Akcija</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {!fundAssets || fundAssets.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className={styles.emptyTable}>
+                                {/* Placeholder until GET /investment-funds/{id}/assets is confirmed working */}
+                                Nema dostupnih hartija za ovaj fond.
+                              </td>
+                            </tr>
+                          ) : (
+                            fundAssets.map((asset, idx) => {
+                              const ticker = asset.ticker ?? asset.symbol ?? '—';
+                              const price = asset.price ?? asset.current_price ?? null;
+                              const change = asset.change ?? asset.price_change_percent ?? asset.percent ?? null;
+                              const volume = asset.volume ?? asset.quantity ?? asset.amount ?? '—';
+                              const imc = asset.initialMarginCost ?? asset.initial_margin_cost ?? null;
+                              const acqDate = asset.acquisitionDate ?? asset.acquisition_date ?? null;
+
+                              return (
+                                <tr key={asset.id ?? asset.asset_id ?? idx}>
+                                  <td style={{ fontWeight: 700 }}>{ticker}</td>
+                                  <td>{price != null ? formatRSD(price) : '—'}</td>
+                                  <td style={{ color: change != null && Number(change) >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                                    {change != null ? formatPercent(change) : '—'}
+                                  </td>
+                                  <td>{volume}</td>
+                                  <td>{imc != null ? formatRSD(imc) : '—'}</td>
+                                  <td>
+                                    {acqDate
+                                      ? (() => { try { return new Date(acqDate).toLocaleDateString('sr-RS'); } catch { return String(acqDate); } })()
+                                      : '—'}
+                                  </td>
+                                  <td>
+                                    <button
+                                      type="button"
+                                      className={styles.btnPrimary}
+                                      style={{ background: '#ef4444', height: 34, fontSize: 13, padding: '0 14px', boxShadow: 'none' }}
+                                      onClick={() => { setSellFeedback(null); setSellModal(asset); }}
+                                    >
+                                      Prodaj
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div className={styles.sectionDivider} />
+
+                {/* ── Performance section ── */}
+                <div style={{ padding: '0 28px 24px' }}>
+                  <div className={styles.sectionEyebrow} style={{ marginBottom: 8 }}>Performanse</div>
+                  {fundPerformance ? (
+                    <pre style={{ margin: 0, fontSize: 13, color: 'var(--tx-2)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                      {JSON.stringify(fundPerformance, null, 2)}
+                    </pre>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                      {['Mesečno', 'Kvartalno', 'Godišnje'].map(label => (
+                        <div key={label} style={{
+                          background: 'var(--input-bg)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius)',
+                          padding: '14px 22px',
+                          textAlign: 'center',
+                          minWidth: 100,
+                        }}>
+                          <div style={{ fontSize: 11, color: 'var(--tx-3)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6, fontWeight: 600 }}>{label}</div>
+                          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--tx-2)' }}>—</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* TODO: Remove placeholder once GET /investment-funds/{id}/performance is confirmed in Swagger */}
                 </div>
 
                 <div className={styles.sectionDivider} />
@@ -652,6 +916,64 @@ export default function ProfitBankPage() {
           </div>
         </div>
       )}
+
+      {/* ── Sell confirmation modal (supervisor) ── */}
+      {sellModal && (
+        <SellConfirmModal
+          asset={sellModal}
+          onConfirm={handleSellAsset}
+          onCancel={() => { setSellModal(null); setSellFeedback(null); }}
+          submitting={sellSubmitting}
+          feedback={sellFeedback}
+        />
+      )}
+    </div>
+  );
+}
+
+function SellConfirmModal({ asset, onConfirm, onCancel, submitting, feedback }) {
+  if (!asset) return null;
+  const ticker = asset.ticker ?? asset.symbol ?? '—';
+  const volume = asset.volume ?? asset.quantity ?? asset.amount ?? '—';
+
+  return (
+    <div className={styles.modalBackdrop}>
+      <div className={styles.modalCard} onClick={e => e.stopPropagation()}>
+        <div className={styles.modalHeader}>
+          <div>
+            <h3 className={styles.modalTitle}>Potvrda prodaje</h3>
+            <p className={styles.modalText}>
+              Hartija: <strong>{ticker}</strong> — Količina: <strong>{volume}</strong>
+            </p>
+          </div>
+          <button type="button" className={styles.closeIconButton} onClick={onCancel}>×</button>
+        </div>
+
+        <div className={styles.modalBody}>
+          <p style={{ fontSize: 14, color: 'var(--tx-2)', margin: 0 }}>
+            Da li ste sigurni da želite da prodate hartiju <strong>{ticker}</strong> iz fonda?
+          </p>
+
+          {feedback && (
+            <Alert tip={feedback.type} poruka={feedback.text} />
+          )}
+
+          <div className={styles.formActions}>
+            <button type="button" className={styles.btnGhost} onClick={onCancel} disabled={submitting}>
+              Otkaži
+            </button>
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              style={{ background: '#ef4444' }}
+              onClick={onConfirm}
+              disabled={submitting}
+            >
+              {submitting ? 'Slanje...' : 'Potvrdi prodaju'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
