@@ -157,3 +157,15 @@
 @media (max-width: 900px) {
   .content { padding: 24px 16px; }
 }
+.rowButtons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btnDelete {
+  color: #e11d48; /* Crvena boja za brisanje */
+}
+.btnDelete:hover {
+  background: #fff1f2;
+}

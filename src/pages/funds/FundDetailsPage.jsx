@@ -1,3 +1,4 @@
+// src/pages/client/FundDetailsPage/FundDetailsPage.jsx
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
@@ -35,24 +36,86 @@ export default function FundDetailsPage() {
 
   const [feedback, setFeedback] = useState(null);
 
-  // Invest modal
+  // invest modal
   const [investOpen, setInvestOpen] = useState(false);
   const [investAmount, setInvestAmount] = useState('');
   const [investAccountNumber, setInvestAccountNumber] = useState('');
   const [investSubmitting, setInvestSubmitting] = useState(false);
 
-  // Client accounts
   const [accounts, setAccounts] = useState([]);
   const [accountsLoading, setAccountsLoading] = useState(false);
 
-  // Profit
-  const [fundProfit, setFundProfit] = useState(null);
-  const [profitLoading, setProfitLoading] = useState(false);
+  const handleSellHoldings = async (asset) => {
+  const assetId = asset.id ?? asset.asset_id ?? asset.assetId;
+  
+  if (!assetId) {
+    setFeedback({ type: 'greska', text: 'Interna greška: ID hartije nije pronađen.' });
+    return;
+  }
 
-  // Derived IDs
-  const fundId = fund?.fund_id ?? fund?.id ?? fund?.fundId;
+  if (!window.confirm(`Da li ste sigurni da želite da prodate hartiju ${asset.ticker}?`)) return;
+  
+  try {
+    setLoading(true);
+    // Payload zavisi od bekenda, obično traže količinu (volume)
+    await investmentFundsApi.sellFundAsset(fundId, assetId, {
+      volume: asset.volume,
+      ticker: asset.ticker
+    });
 
-  // ---- LOAD FUND (from list endpoint) ----
+    setFeedback({ type: 'uspeh', text: `Uspešno prodata hartija ${asset.ticker}.` });
+    
+    // Osvežavanje podataka nakon prodaje
+    const updatedFund = await investmentFundsApi.getFundDetails(id);
+    setFund(updatedFund);
+  } catch (err) {
+    setFeedback({ type: 'greska', text: getErrorMessage(err, 'Greška pri prodaji hartije.') });
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Za klijenta: Povlačenje sopstvenih sredstava
+const handleClientWithdraw = async () => {
+  // Ovde bi idealno bilo otvoriti modal, sličan onom za investiranje
+  if (!window.confirm("Da li želite da povučete sredstva iz ovog fonda?")) return;
+
+  try {
+    setInvestSubmitting(true);
+    await investmentFundsApi.withdrawFromFund(fundId, {
+      accountNumber: investAccountNumber, // Koristimo isti state kao za invest
+      amount: investAmount 
+    });
+    setFeedback({ type: 'uspeh', text: 'Zahtev za povlačenje sredstava je poslat.' });
+  } catch (err) {
+    setFeedback({ type: 'greska', text: getErrorMessage(err, 'Neuspešno povlačenje.') });
+  } finally {
+    setInvestSubmitting(false);
+  }
+};
+
+// Za supervizora: Direktna uplata/povlačenje na račun fonda
+const handleSupervisorFundAction = async (type) => {
+  const action = type === 'deposit' ? 'uplatu' : 'povlačenje';
+  const apiCall = type === 'deposit' 
+    ? investmentFundsApi.depositToFund 
+    : investmentFundsApi.withdrawFromFund;
+
+  try {
+    setInvestSubmitting(true);
+    await apiCall(fundId, { amount: investAmount });
+    setFeedback({ type: 'uspeh', text: `Uspešno ste izvršili ${action}.` });
+  } catch (err) {
+    setFeedback({ type: 'greska', text: getErrorMessage(err, `Greška pri operaciji: ${action}.`) });
+  } finally {
+    setInvestSubmitting(false);
+  }
+};
+
+  const HeaderComponent = isClient ? ClientHeader : Navbar;
+  const headerProps = isClient ? { activeNav: 'funds' } : {};
+
+  // Load fund details (Swagger: GET /api/investment-funds/{fundId})
   useEffect(() => {
     let alive = true;
 
@@ -61,45 +124,26 @@ export default function FundDetailsPage() {
         setLoading(true);
         setError('');
 
-        // IMPORTANT: tradingApi interceptor returns payload directly (res.data)
-        const payload = await investmentFundsApi.getFunds(); // your existing working list endpoint
-
-        const list =
-          Array.isArray(payload) ? payload :
-          Array.isArray(payload?.data) ? payload.data :
-          Array.isArray(payload?.content) ? payload.content :
-          Array.isArray(payload?.data?.data) ? payload.data.data :
-          Array.isArray(payload?.data?.content) ? payload.data.content :
-          [];
-
-        const found = list.find((f) => {
-          const fid = f?.fund_id ?? f?.id ?? f?.fundId;
-          return String(fid) === String(id);
-        });
-
+        const payload = await investmentFundsApi.getFundDetails(id);
         if (!alive) return;
 
-        if (!found) {
-          setFund(null);
-          setError('Fond nije pronađen.');
-          return;
-        }
-
-        setFund(found);
+        setFund(payload); // interceptor should return object directly
       } catch (e) {
-        console.error('FundDetailsPage load error:', e);
+        console.error(e);
         if (!alive) return;
-        setError(getErrorMessage(e, 'Greška pri učitavanju fonda. Proverite vezu sa serverom.'));
+        setError(getErrorMessage(e, 'Greška pri učitavanju fonda.'));
       } finally {
         if (alive) setLoading(false);
       }
     }
 
     if (id) loadFund();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [id]);
 
-  // ---- LOAD CLIENT ACCOUNTS (for invest) ----
+  // Load client accounts for invest
   useEffect(() => {
     if (!isClient) return;
 
@@ -110,7 +154,6 @@ export default function FundDetailsPage() {
     const loadAccounts = async () => {
       try {
         setAccountsLoading(true);
-
         const payload = await accountsApi.getClientAccounts(clientId);
 
         const list =
@@ -122,11 +165,10 @@ export default function FundDetailsPage() {
         if (!alive) return;
 
         setAccounts(list);
-
         const first = list?.[0];
         if (first?.account_number) setInvestAccountNumber(String(first.account_number));
       } catch (e) {
-        console.error('loadAccounts error:', e);
+        console.error(e);
         if (!alive) return;
         setAccounts([]);
       } finally {
@@ -138,40 +180,6 @@ export default function FundDetailsPage() {
     return () => { alive = false; };
   }, [isClient, user]);
 
-  // ---- LOAD PROFIT FOR THIS FUND ----
-  useEffect(() => {
-    let alive = true;
-    if (!fundId) return;
-
-    async function loadProfit() {
-      try {
-        setProfitLoading(true);
-
-        const payload = await investmentFundsApi.getFundProfits();
-
-        const list =
-          Array.isArray(payload) ? payload :
-          Array.isArray(payload?.data) ? payload.data :
-          [];
-
-        const row = list.find((p) => String(p?.fund_id ?? p?.fundId ?? p?.id) === String(fundId));
-
-        if (!alive) return;
-        setFundProfit(row ?? null);
-      } catch (e) {
-        console.error('loadProfit error:', e);
-        if (!alive) return;
-        setFundProfit(null);
-      } finally {
-        if (alive) setProfitLoading(false);
-      }
-    }
-
-    loadProfit();
-    return () => { alive = false; };
-  }, [fundId]);
-
-  // ---- ANIMATIONS ----
   useLayoutEffect(() => {
     if (loading || !fund) return;
     const ctx = gsap.context(() => {
@@ -182,35 +190,10 @@ export default function FundDetailsPage() {
     return () => ctx.revert();
   }, [loading, fund]);
 
-  const HeaderComponent = isClient ? ClientHeader : Navbar;
-  const headerProps = isClient ? { activeNav: 'funds' } : {};
+  const holdings = useMemo(() => Array.isArray(fund?.holdings) ? fund.holdings : [], [fund]);
+  const performance = useMemo(() => Array.isArray(fund?.performance_history) ? fund.performance_history : [], [fund]);
 
-  const managerName = useMemo(() => {
-    const m = fund?.manager ?? fund?.actuary ?? fund?.fund_manager ?? null;
-    const first = m?.first_name ?? m?.firstName ?? '';
-    const last = m?.last_name ?? m?.lastName ?? '';
-    const full = `${first} ${last}`.trim();
-    return full || fund?.manager_name || '—';
-  }, [fund]);
-
-  const minInvestment =
-    fund?.minimumInvestment ??
-    fund?.minimum_investment ??
-    fund?.minimum_investment_rsd ??
-    null;
-
-  const liquidity =
-    fund?.liquidity ??
-    fund?.liquidity_rsd ??
-    fund?.available_liquidity_rsd ??
-    null;
-
-  const fundAccountNumber =
-    fund?.fund_account?.account_number ??
-    fund?.account_number ??
-    fund?.bank_account_number ??
-    fund?.fund_account_number ??
-    '—';
+  const fundId = fund?.id ?? id;
 
   async function handleInvestSubmit(e) {
     e.preventDefault();
@@ -227,7 +210,7 @@ export default function FundDetailsPage() {
       return;
     }
 
-    const min = Number(minInvestment);
+    const min = Number(fund?.min_investment ?? fund?.minimumInvestment ?? fund?.minimum_investment);
     if (!Number.isNaN(min) && min > 0 && amount < min) {
       setFeedback({ type: 'greska', text: `Minimalni ulog je ${formatRSD(min)}.` });
       return;
@@ -237,7 +220,6 @@ export default function FundDetailsPage() {
       setInvestSubmitting(true);
       setFeedback(null);
 
-      // Keep multiple keys until swagger request schema is confirmed
       await investmentFundsApi.investInFund(fundId, {
         amount,
         accountNumber: String(investAccountNumber),
@@ -255,7 +237,6 @@ export default function FundDetailsPage() {
     }
   }
 
-  // ---- STATES ----
   if (loading) {
     return (
       <div className={styles.page}>
@@ -283,7 +264,6 @@ export default function FundDetailsPage() {
       <HeaderComponent {...headerProps} />
 
       <main className={styles.content}>
-        {/* Breadcrumb */}
         <div className={`page-anim ${styles.breadcrumb}`}>
           <button
             className={styles.breadcrumbLink}
@@ -292,13 +272,12 @@ export default function FundDetailsPage() {
             Investicioni fondovi
           </button>
           <span className={styles.breadcrumbSep}>›</span>
-          <span>{fund.name ?? fund.fund_name ?? 'Fond'}</span>
+          <span>{fund.name ?? 'Fond'}</span>
         </div>
 
-        {/* Header */}
         <div className={`page-anim ${styles.pageHeader}`}>
           <div>
-            <h1 className={styles.pageTitle}>{fund.name ?? fund.fund_name ?? 'Fond'}</h1>
+            <h1 className={styles.pageTitle}>{fund.name ?? 'Fond'}</h1>
             {(fund.description ?? '') && <p className={styles.pageDesc}>{fund.description}</p>}
           </div>
           {isSupervisor && <span className={styles.supervisorBadge}>Supervisor</span>}
@@ -310,36 +289,15 @@ export default function FundDetailsPage() {
           </div>
         )}
 
-        {/* Info cards */}
         <section className={`page-anim ${styles.statsGrid}`}>
-          <InfoCard label="Menadžer" value={managerName} />
-          <InfoCard label="Minimalni ulog" value={formatRSD(minInvestment)} />
-          <InfoCard label="Likvidnost" value={formatRSD(liquidity)} />
-          <InfoCard label="Broj računa fonda" value={fundAccountNumber} />
-
-          <InfoCard
-            label="Profit"
-            value={
-              profitLoading
-                ? 'Učitavanje...'
-                : formatRSD(
-                    fundProfit?.profit_rsd ??
-                      fundProfit?.profit ??
-                      fundProfit?.value ??
-                      null
-                  )
-            }
-          />
-
-          {/* Placeholder: Fund value derived */}
-          <InfoCard label="Vrednost fonda" value="—" valueClass={styles.mutedValue} />
+          <InfoCard label="Menadžer" value={fund.manager ?? '—'} />
+          <InfoCard label="Minimalni ulog" value={formatRSD(fund.min_investment)} />
+          <InfoCard label="Likvidnost" value={formatRSD(fund.account_balance)} />
+          <InfoCard label="Vrednost fonda" value={formatRSD(fund.fund_value)} />
+          <InfoCard label="Profit" value={formatRSD(fund.profit)} />
         </section>
 
-        <div className={`page-anim ${styles.helperText}`}>
-          Vrednost fonda (likvidnost + vrednost hartija) nije dostupna dok backend ne doda endpoint za holdings fonda.
-        </div>
-
-        {/* Assets table placeholder (prepared for future endpoints) */}
+        {/* Holdings table */}
         <section className={`page-anim ${styles.card}`}>
           <div className={styles.cardHeader}>
             <div>
@@ -362,35 +320,40 @@ export default function FundDetailsPage() {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td colSpan={isSupervisor ? 7 : 6} className={styles.emptyCell}>
-                    Trenutno nema dostupnog endpoint-a za hartije fonda (GET assets) na backendu.
-                  </td>
-                </tr>
-
-                {/* Example placeholder row if you want Sell button visible */}
-                {isSupervisor && (
+                {holdings.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className={styles.mutedCell}>
-                      (Biće dostupno kada backend doda holdings + sell endpoint.)
-                    </td>
-                    <td>
-                      <button
-                        className={styles.btnGhost}
-                        disabled
-                        title="Biće dostupno kada backend doda endpoint za prodaju hartije iz fonda."
-                      >
-                        Prodaj
-                      </button>
+                    <td colSpan={isSupervisor ? 7 : 6} className={styles.emptyTable}>
+                      Nema hartija u fondu.
                     </td>
                   </tr>
+                ) : (
+                  holdings.map((h, idx) => (
+                    <tr key={`${h.ticker}-${h.acquisition_date}-${idx}`}>
+                      <td>{h.ticker ?? '—'}</td>
+                      <td>{formatRSD(h.price)}</td>
+                      <td>{formatNumber(h.change)}</td>
+                      <td>{formatNumber(h.volume)}</td>
+                      <td>{formatRSD(h.initial_margin_cost)}</td>
+                      <td>{formatDate(h.acquisition_date)}</td>
+ {isSupervisor && (
+  <td>
+    <button
+      className={styles.btnSecondary} // Promeni stil da ne bude ghost ako je aktivno
+      onClick={() => handleSellHoldings(h)}
+    >
+      Prodaj
+    </button>
+  </td>
+)}
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
           </div>
         </section>
 
-        {/* Performance placeholder */}
+        {/* Performance */}
         <section className={`page-anim ${styles.card}`}>
           <div className={styles.cardHeader}>
             <div>
@@ -398,66 +361,63 @@ export default function FundDetailsPage() {
               <h2 className={styles.cardTitle}>Istorijski prikaz</h2>
             </div>
           </div>
-          <div className={styles.emptyTable}>
-            Trenutno nema dostupnog endpoint-a za performanse fonda (GET performance) na backendu.
+
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Datum</th>
+                  <th>Liquid assets</th>
+                  <th>Value</th>
+                  <th>Profit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {performance.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className={styles.emptyTable}>
+                      Nema podataka o performansama.
+                    </td>
+                  </tr>
+                ) : (
+                  performance.map((p, idx) => (
+                    <tr key={`${p.date}-${idx}`}>
+                      <td>{formatDate(p.date)}</td>
+                      <td>{formatRSD(p.liquid_assets)}</td>
+                      <td>{formatRSD(p.value)}</td>
+                      <td>{formatRSD(p.profit)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
 
-        {/* Actions */}
-        <section className={`page-anim ${styles.actionSection}`}>
-          {isClient && (
-            <>
-              <button
-                className={styles.btnPrimary}
-                onClick={() => {
-                  setInvestOpen(true);
-                  setInvestAmount('');
-                }}
-              >
-                Investiraj
-              </button>
-              <button
-                className={styles.btnGhost}
-                disabled
-                title="Biće dostupno kada backend doda withdraw endpoint."
-              >
-                Povuci sredstva
-              </button>
-            </>
-          )}
+{/* Actions */}
+<section className={`page-anim ${styles.actionSection}`}>
+  {isClient && (
+    <>
+      <button className={styles.btnPrimary} onClick={() => setInvestOpen(true)}>
+        Investiraj
+      </button>
+      <button className={styles.btnGhost} onClick={handleClientWithdraw}>
+        Povuci sredstva
+      </button>
+    </>
+  )}
 
-          {isSupervisor && (
-            <>
-              <button
-                className={styles.btnGhost}
-                disabled
-                title="Biće dostupno kada backend doda deposit endpoint."
-              >
-                Uplata u fond
-              </button>
-              <button
-                className={styles.btnGhost}
-                disabled
-                title="Biće dostupno kada backend doda withdraw endpoint."
-              >
-                Povlačenje iz fonda
-              </button>
-            </>
-          )}
-
-          {/* If neither client nor supervisor, show nothing (or could show Invest as well if allowed) */}
-          {!isClient && !isSupervisor && (
-            <button
-              className={styles.btnPrimary}
-              onClick={() => {
-                setInvestOpen(true);
-                setInvestAmount('');
-              }}
-            >
-              Investiraj
-            </button>
-          )}
-        </section>
+  {isSupervisor && (
+    <>
+      <button className={styles.btnPrimary} onClick={() => handleSupervisorFundAction('deposit')}>
+        Uplata u fond
+      </button>
+      <button className={styles.btnGhost} onClick={() => handleSupervisorFundAction('withdraw')}>
+        Povlačenje iz fonda
+      </button>
+    </>
+  )}
+</section>
       </main>
 
       {/* Invest modal */}
@@ -468,12 +428,10 @@ export default function FundDetailsPage() {
               <div>
                 <h3 className={styles.modalTitle}>Investiraj u fond</h3>
                 <p className={styles.modalText}>
-                  Fond: <strong>{fund.name ?? fund.fund_name}</strong>
+                  Fond: <strong>{fund.name}</strong>
                 </p>
               </div>
-              <button className={styles.closeBtn} onClick={() => setInvestOpen(false)}>
-                ×
-              </button>
+              <button className={styles.closeBtn} onClick={() => setInvestOpen(false)}>×</button>
             </div>
 
             <form onSubmit={handleInvestSubmit} className={styles.modalBody}>
@@ -513,12 +471,7 @@ export default function FundDetailsPage() {
               </div>
 
               <div className={styles.formActions}>
-                <button
-                  type="button"
-                  className={styles.btnGhost}
-                  onClick={() => setInvestOpen(false)}
-                  disabled={investSubmitting}
-                >
+                <button type="button" className={styles.btnGhost} onClick={() => setInvestOpen(false)} disabled={investSubmitting}>
                   Otkaži
                 </button>
                 <button type="submit" className={styles.btnPrimary} disabled={investSubmitting}>
@@ -533,13 +486,11 @@ export default function FundDetailsPage() {
   );
 }
 
-function InfoCard({ label, value, valueClass }) {
+function InfoCard({ label, value }) {
   return (
     <div className={styles.infoCard}>
       <span className={styles.infoLabel}>{label}</span>
-      <strong className={`${styles.infoValue}${valueClass ? ` ${valueClass}` : ''}`}>
-        {value}
-      </strong>
+      <strong className={styles.infoValue}>{value}</strong>
     </div>
   );
 }
@@ -548,8 +499,19 @@ function formatRSD(value) {
   if (value == null || value === '—') return '—';
   const num = Number(value);
   if (Number.isNaN(num)) return '—';
-  return `${new Intl.NumberFormat('sr-RS', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(num)} RSD`;
+  return `${new Intl.NumberFormat('sr-RS', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num)} RSD`;
+}
+
+function formatNumber(value) {
+  if (value == null) return '—';
+  const num = Number(value);
+  if (Number.isNaN(num)) return '—';
+  return new Intl.NumberFormat('sr-RS').format(num);
+}
+
+function formatDate(value) {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleDateString('sr-RS');
 }

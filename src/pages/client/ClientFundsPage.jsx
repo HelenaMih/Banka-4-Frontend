@@ -17,13 +17,16 @@ export default function ClientFundsPage() {
   const pageRef = useRef(null);
   const navigate = useNavigate();
 
+  // 1. Provera role korisnika
   const user = useAuthStore((s) => s.user);
+  const isSupervisor = user?.identity_type === 'supervisor'; // Proveri da li je 'supervisor' tačan string u bazi
   const isActuary = user?.identity_type === 'actuary';
   const actId = user?.actuary_id ?? user?.identity_id ?? user?.id;
 
   const [onlyMine, setOnlyMine] = useState(false);
 
   const fetcher = () => {
+    // Supervizor uvek vidi sve, Actuary može da filtrira
     if (isActuary && onlyMine && actId) {
       return investmentFundsApi.getFundsManagedByActuary(actId);
     }
@@ -37,11 +40,26 @@ export default function ClientFundsPage() {
   ]);
 
   const funds = useMemo(() => {
-    return Array.isArray(rawFunds) ? rawFunds : rawFunds?.data ?? rawFunds?.content ?? [];
+    if (Array.isArray(rawFunds)) return rawFunds;
+    if (Array.isArray(rawFunds?.data)) return rawFunds.data;
+    return rawFunds?.content ?? [];
   }, [rawFunds]);
 
+  // Akcija za supervizora (npr. brisanje fonda)
+  const handleDeleteFund = async (e, fundId) => {
+    e.stopPropagation(); // Da ne bi okinuo navigate na detalje
+    if (!window.confirm('Da li ste sigurni da želite da obrišete ovaj fond?')) return;
+    
+    try {
+      await investmentFundsApi.deleteFund(fundId);
+      refetch(); // Osveži listu nakon brisanja
+    } catch (err) {
+      alert(getErrorMessage(err, 'Greška pri brisanju fonda.'));
+    }
+  };
+
   useLayoutEffect(() => {
-    if (loading) return;
+    if (loading || funds.length === 0) return;
     const ctx = gsap.context(() => {
       gsap.from('.page-anim', {
         opacity: 0,
@@ -52,7 +70,7 @@ export default function ClientFundsPage() {
       });
     }, pageRef);
     return () => ctx.revert();
-  }, [loading]);
+  }, [loading, funds]);
 
   return (
     <div ref={pageRef} className={styles.page}>
@@ -63,21 +81,37 @@ export default function ClientFundsPage() {
           <p className={styles.breadcrumb}>Investicioni fondovi</p>
           <div className={styles.pageHeader}>
             <div>
-              <h1 className={styles.pageTitle}>Investicioni fondovi</h1>
-              <p className={styles.pageDesc}>Pregled svih dostupnih investicionih fondova.</p>
+              <h1 className={styles.pageTitle}>
+                {isSupervisor ? 'Administracija fondova' : 'Investicioni fondovi'}
+              </h1>
+              <p className={styles.pageDesc}>
+                {isSupervisor 
+                  ? 'Upravljanje svim dostupnim investicionim fondovima u sistemu.' 
+                  : 'Pregled svih dostupnih investicionih fondova.'}
+              </p>
             </div>
 
-            {/* Toggle: only for actuary accounts (if this page is reused for them) */}
-            {isActuary && (
-              <button
-                className={styles.btnGhost}
-                onClick={() => setOnlyMine((v) => !v)}
-                disabled={!actId}
-                title={!actId ? 'Nedostaje actId u user objektu.' : undefined}
-              >
-                {onlyMine ? 'Prikaži sve fondove' : 'Moji fondovi'}
-              </button>
-            )}
+            <div className={styles.headerActions}>
+              {/* Dugme za kreiranje novog fonda - SAMO ZA SUPERVIZORA */}
+              {isSupervisor && (
+                <button 
+                  className={styles.btnPrimary}
+                  onClick={() => navigate('/supervisor/funds/create')}
+                >
+                  + Kreiraj novi fond
+                </button>
+              )}
+
+              {isActuary && (
+                <button
+                  className={styles.btnGhost}
+                  onClick={() => setOnlyMine((v) => !v)}
+                  disabled={!actId}
+                >
+                  {onlyMine ? 'Prikaži sve fondove' : 'Moji fondovi'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -86,16 +120,10 @@ export default function ClientFundsPage() {
         ) : error ? (
           <div className="page-anim">
             <Alert tip="greska" poruka={getErrorMessage(error, 'Greška pri učitavanju fondova.')} />
-            <button className={styles.btnGhost} onClick={refetch} style={{ marginTop: 12 }}>
-              Pokušaj ponovo
-            </button>
+            <button className={styles.btnGhost} onClick={refetch}>Pokušaj ponovo</button>
           </div>
         ) : (
           <section className={`page-anim ${styles.card}`}>
-            <div className={styles.cardHeader}>
-              <h2 className={styles.cardTitle}>Dostupni fondovi</h2>
-            </div>
-
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
@@ -107,40 +135,41 @@ export default function ClientFundsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {funds.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className={styles.emptyTable}>
-                        Nema dostupnih fondova.
-                      </td>
-                    </tr>
-                  ) : (
-                    funds.map((fund) => {
-                      const fundId = fund.id ?? fund.fund_id ?? fund.fundId;
-                      const managerName =
-                        [
-                          fund.manager?.first_name ?? fund.manager?.firstName ?? '',
-                          fund.manager?.last_name ?? fund.manager?.lastName ?? '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ') || '—';
+                  {funds.map((fund) => {
+                    const fundId = fund.fund_id ?? fund.id ?? fund.fundId;
+                    const managerName = [
+                      fund.manager?.first_name ?? fund.first_name ?? '',
+                      fund.manager?.last_name ?? fund.last_name ?? ''
+                    ].filter(Boolean).join(' ') || '—';
 
-                      return (
-                        <tr key={fundId}>
-                          <td className={styles.fundName}>{fund.name ?? fund.fund_name ?? '—'}</td>
-                          <td>{managerName}</td>
-                          <td className={styles.fundDesc}>{fund.description ?? '—'}</td>
-                          <td>
+                    return (
+                      <tr key={fundId}>
+                        <td className={styles.fundName}>{fund.name ?? '—'}</td>
+                        <td>{managerName}</td>
+                        <td className={styles.fundDesc}>{fund.description ?? '—'}</td>
+                        <td className={styles.actionsCell}>
+                          <div className={styles.rowButtons}>
                             <button
                               className={styles.btnPrimary}
                               onClick={() => navigate(`/client/investment-funds/${fundId}`)}
                             >
                               Detalji
                             </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
+                            
+                            {/* DODATNE OPCIJE ZA SUPERVIZORA */}
+                            {isSupervisor && (
+                              <button
+                                className={`${styles.btnGhost} ${styles.btnDelete}`}
+                                onClick={(e) => handleDeleteFund(e, fundId)}
+                              >
+                                Obriši
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
