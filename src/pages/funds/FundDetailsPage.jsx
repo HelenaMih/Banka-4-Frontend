@@ -36,6 +36,9 @@ export default function FundDetailsPage() {
 
   const [feedback, setFeedback] = useState(null);
 
+    // Na vrh komponente, gde su ostali state-ovi
+  const [modalType, setModalType] = useState('invest');
+
   // invest modal
   const [investOpen, setInvestOpen] = useState(false);
   const [investAmount, setInvestAmount] = useState('');
@@ -48,6 +51,7 @@ export default function FundDetailsPage() {
   const handleSellHoldings = async (asset) => {
   const assetId = asset.id ?? asset.asset_id ?? asset.assetId;
   
+
   if (!assetId) {
     setFeedback({ type: 'greska', text: 'Interna greška: ID hartije nije pronađen.' });
     return;
@@ -76,19 +80,40 @@ export default function FundDetailsPage() {
 };
 
 // Za klijenta: Povlačenje sopstvenih sredstava
-const handleClientWithdraw = async () => {
-  // Ovde bi idealno bilo otvoriti modal, sličan onom za investiranje
-  if (!window.confirm("Da li želite da povučete sredstva iz ovog fonda?")) return;
+const handleClientWithdraw = async (e) => {
+  if (e) e.preventDefault(); // Sprečava reload ako je unutar forme
+
+  const amount = Number(investAmount);
+
+  // Provera kao i za investiranje
+  if (!investAmount || isNaN(amount) || amount <= 0) {
+    setFeedback({ type: 'greska', text: 'Unesite validan iznos.' });
+    return;
+  }
+
+  if (!investAccountNumber) {
+    setFeedback({ type: 'greska', text: 'Izaberite račun.' });
+    return;
+  }
 
   try {
     setInvestSubmitting(true);
-    await investmentFundsApi.withdrawFromFund(fundId, {
-      accountNumber: investAccountNumber, // Koristimo isti state kao za invest
-      amount: investAmount 
-    });
-    setFeedback({ type: 'uspeh', text: 'Zahtev za povlačenje sredstava je poslat.' });
+    setFeedback(null);
+
+    // Šaljemo payload koji pokriva i 'accountNumber' i 'AccountNumber'
+    const payload = {
+      amount: amount,
+      accountNumber: String(investAccountNumber),
+      AccountNumber: String(investAccountNumber) // Rešava tvoj "required" error
+    };
+
+    await investmentFundsApi.withdrawFromFund(fundId, payload);
+    
+    setFeedback({ type: 'uspeh', text: 'Uspešno poslat zahtev za povlačenje.' });
+    setInvestOpen(false); // Zatvori modal
+    setInvestAmount('');  // Resetuj polje
   } catch (err) {
-    setFeedback({ type: 'greska', text: getErrorMessage(err, 'Neuspešno povlačenje.') });
+    setFeedback({ type: 'greska', text: getErrorMessage(err, 'Greška pri povlačenju.') });
   } finally {
     setInvestSubmitting(false);
   }
@@ -196,46 +221,43 @@ const handleSupervisorFundAction = async (type) => {
   const fundId = fund?.id ?? id;
 
   async function handleInvestSubmit(e) {
-    e.preventDefault();
+  e.preventDefault();
+  const amount = Number(investAmount);
 
-    const amount = Number(investAmount);
-
-    if (!investAccountNumber) {
-      setFeedback({ type: 'greska', text: 'Izaberite račun sa kog investirate.' });
-      return;
-    }
-
-    if (!investAmount || Number.isNaN(amount) || amount <= 0) {
-      setFeedback({ type: 'greska', text: 'Unesite validan iznos.' });
-      return;
-    }
-
-    const min = Number(fund?.min_investment ?? fund?.minimumInvestment ?? fund?.minimum_investment);
-    if (!Number.isNaN(min) && min > 0 && amount < min) {
-      setFeedback({ type: 'greska', text: `Minimalni ulog je ${formatRSD(min)}.` });
-      return;
-    }
-
-    try {
-      setInvestSubmitting(true);
-      setFeedback(null);
-
-      await investmentFundsApi.investInFund(fundId, {
-        amount,
-        accountNumber: String(investAccountNumber),
-        AccountNumber: String(investAccountNumber),
-        account_number: String(investAccountNumber),
-      });
-
-      setFeedback({ type: 'uspeh', text: 'Investicija je uspešno evidentirana.' });
-      setInvestOpen(false);
-      setInvestAmount('');
-    } catch (err) {
-      setFeedback({ type: 'greska', text: getErrorMessage(err, 'Investiranje nije uspelo.') });
-    } finally {
-      setInvestSubmitting(false);
-    }
+  if (!investAccountNumber) {
+    setFeedback({ type: 'greska', text: 'Izaberite račun.' });
+    return;
   }
+
+  try {
+    setInvestSubmitting(true);
+    setFeedback(null);
+
+    // Payload koji rešava "AccountNumber" error
+    const payload = {
+      amount,
+      accountNumber: String(investAccountNumber),
+      AccountNumber: String(investAccountNumber), // Obavezno za backend
+      account_number: String(investAccountNumber),
+    };
+
+    if (modalType === 'invest') {
+      await investmentFundsApi.investInFund(fundId, payload);
+      setFeedback({ type: 'uspeh', text: 'Investicija uspešna!' });
+    } else {
+      // OVO JE DEO KOJI TI JE FALIO:
+      await investmentFundsApi.withdrawFromFund(fundId, payload);
+      setFeedback({ type: 'uspeh', text: 'Zahtev za povlačenje poslat!' });
+    }
+
+    setInvestOpen(false);
+    setInvestAmount('');
+  } catch (err) {
+    setFeedback({ type: 'greska', text: getErrorMessage(err, 'Akcija nije uspela.') });
+  } finally {
+    setInvestSubmitting(false);
+  }
+}
 
   if (loading) {
     return (
@@ -398,10 +420,23 @@ const handleSupervisorFundAction = async (type) => {
 <section className={`page-anim ${styles.actionSection}`}>
   {isClient && (
     <>
-      <button className={styles.btnPrimary} onClick={() => setInvestOpen(true)}>
+      <button 
+        className={styles.btnPrimary} 
+        onClick={() => {
+          setModalType('invest'); // Kažeš: želim da investiram
+          setInvestOpen(true);
+        }}
+      >
         Investiraj
       </button>
-      <button className={styles.btnGhost} onClick={handleClientWithdraw}>
+
+      <button 
+        className={styles.btnGhost} 
+        onClick={() => {
+          setModalType('withdraw'); // Kažeš: želim da povučem pare
+          setInvestOpen(true);
+        }}
+      >
         Povuci sredstva
       </button>
     </>
@@ -420,68 +455,84 @@ const handleSupervisorFundAction = async (type) => {
 </section>
       </main>
 
-      {/* Invest modal */}
-      {investOpen && (
-        <div className={styles.modalBackdrop} onClick={() => setInvestOpen(false)}>
-          <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div>
-                <h3 className={styles.modalTitle}>Investiraj u fond</h3>
-                <p className={styles.modalText}>
-                  Fond: <strong>{fund.name}</strong>
-                </p>
-              </div>
-              <button className={styles.closeBtn} onClick={() => setInvestOpen(false)}>×</button>
-            </div>
-
-            <form onSubmit={handleInvestSubmit} className={styles.modalBody}>
-              <div className={styles.field}>
-                <label>Račun *</label>
-                <select
-                  value={investAccountNumber}
-                  onChange={(e) => setInvestAccountNumber(e.target.value)}
-                  required
-                  disabled={accountsLoading || accounts.length === 0}
-                >
-                  {accountsLoading ? (
-                    <option value="">Učitavanje računa...</option>
-                  ) : accounts.length === 0 ? (
-                    <option value="">Nema dostupnih računa</option>
-                  ) : (
-                    accounts.map((acc) => (
-                      <option key={acc.account_number} value={acc.account_number}>
-                        {acc.name ?? 'Račun'} — {acc.account_number}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-
-              <div className={styles.field}>
-                <label>Iznos (RSD) *</label>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  placeholder="Unesite iznos..."
-                  value={investAmount}
-                  onChange={(e) => setInvestAmount(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className={styles.formActions}>
-                <button type="button" className={styles.btnGhost} onClick={() => setInvestOpen(false)} disabled={investSubmitting}>
-                  Otkaži
-                </button>
-                <button type="submit" className={styles.btnPrimary} disabled={investSubmitting}>
-                  {investSubmitting ? 'Slanje...' : 'Potvrdi'}
-                </button>
-              </div>
-            </form>
-          </div>
+{/* Invest modal */}
+{investOpen && (
+  <div className={styles.modalBackdrop} onClick={() => setInvestOpen(false)}>
+    <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+      <div className={styles.modalHeader}>
+        <div>
+          {/* DINAMIČKI NASLOV */}
+          <h3 className={styles.modalTitle}>
+            {modalType === 'invest' ? 'Investiraj u fond' : 'Povuci sredstva iz fonda'}
+          </h3>
+          <p className={styles.modalText}>
+            Fond: <strong>{fund.name}</strong>
+          </p>
         </div>
-      )}
+        <button className={styles.closeBtn} onClick={() => setInvestOpen(false)}>×</button>
+      </div>
+
+      <form onSubmit={handleInvestSubmit} className={styles.modalBody}>
+        <div className={styles.field}>
+          <label>Račun *</label>
+          <select
+            value={investAccountNumber}
+            onChange={(e) => setInvestAccountNumber(e.target.value)}
+            required
+            disabled={accountsLoading || accounts.length === 0}
+          >
+            {accountsLoading ? (
+              <option value="">Učitavanje računa...</option>
+            ) : accounts.length === 0 ? (
+              <option value="">Nema dostupnih računa</option>
+            ) : (
+              accounts.map((acc) => (
+                <option key={acc.account_number} value={acc.account_number}>
+                  {acc.name ?? 'Račun'} — {acc.account_number}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+
+        <div className={styles.field}>
+          <label>Iznos (RSD) *</label>
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            placeholder="Unesite iznos..."
+            value={investAmount}
+            onChange={(e) => setInvestAmount(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className={styles.formActions}>
+          <button 
+            type="button" 
+            className={styles.btnGhost} 
+            onClick={() => setInvestOpen(false)} 
+            disabled={investSubmitting}
+          >
+            Otkaži
+          </button>
+          <button 
+            type="submit" 
+            className={styles.btnPrimary} 
+            disabled={investSubmitting}
+          >
+            {/* DINAMIČKI TEKST NA DUGMETU */}
+            {investSubmitting 
+              ? 'Slanje...' 
+              : (modalType === 'invest' ? 'Potvrdi investiciju' : 'Potvrdi povlačenje')
+            }
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
     </div>
   );
 }
