@@ -27,6 +27,7 @@ function normalizeFund(f) {
     profit:           f.profit              ?? f.total_profit  ?? f.totalProfit  ?? 0,
     minimumInvestment: f.minimumInvestment  ?? f.minimum_contribution ?? f.minContribution ?? f.min_contribution ?? 0,
     managerId:        f.managerId           ?? f.manager_id,
+    accountNumber:    f.accountNumber       ?? f.account_number ?? f.fundAccountNumber ?? f.fund_account_number ?? f.fund_number ?? f.fundNumber ?? null,
   };
 }
 
@@ -81,6 +82,7 @@ export default function FundDetailPage() {
   }
 
   const profitPositive = (fund?.profit ?? 0) >= 0;
+  const accountNumber = fund?.accountNumber ?? '—';
 
   return (
     <div ref={pageRef} className={styles.stranica}>
@@ -154,6 +156,10 @@ export default function FundDetailPage() {
               <div className={styles.statCard}>
                 <span className={styles.statLabel}>Minimalni ulog</span>
                 <span className={styles.statValue}>{formatRsd(fund.minimumInvestment)} RSD</span>
+              </div>
+              <div className={styles.statCard}>
+                <span className={styles.statLabel}>Račun fonda</span>
+                <span className={styles.statValue}>{accountNumber}</span>
               </div>
             </div>
           </>

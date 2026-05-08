@@ -217,6 +217,15 @@ const handleSupervisorFundAction = async (type) => {
 
   const holdings = useMemo(() => Array.isArray(fund?.holdings) ? fund.holdings : [], [fund]);
   const performance = useMemo(() => Array.isArray(fund?.performance_history) ? fund.performance_history : [], [fund]);
+  const fundAccountNumber = useMemo(() => (
+    fund?.account_number ??
+    fund?.accountNumber ??
+    fund?.fund_account_number ??
+    fund?.fundAccountNumber ??
+    fund?.fund_number ??
+    fund?.fundNumber ??
+    '—'
+  ), [fund]);
 
   const fundId = fund?.id ?? id;
 
@@ -314,6 +323,7 @@ const handleSupervisorFundAction = async (type) => {
         <section className={`page-anim ${styles.statsGrid}`}>
           <InfoCard label="Menadžer" value={fund.manager ?? '—'} />
           <InfoCard label="Minimalni ulog" value={formatRSD(fund.min_investment)} />
+          <InfoCard label="Račun fonda" value={fundAccountNumber} />
           <InfoCard label="Likvidnost" value={formatRSD(fund.account_balance)} />
           <InfoCard label="Vrednost fonda" value={formatRSD(fund.fund_value)} />
           <InfoCard label="Profit" value={formatRSD(fund.profit)} />
