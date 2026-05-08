@@ -18,6 +18,18 @@ function formatRsd(value) {
   });
 }
 
+function getFundAccountNumber(f) {
+  return (
+    f?.accountNumber ??
+    f?.account_number ??
+    f?.fundAccountNumber ??
+    f?.fund_account_number ??
+    f?.fundNumber ??
+    f?.fund_number ??
+    null
+  );
+}
+
 function normalizeFund(f) {
   return {
     id:               f.id                  ?? f.fund_id       ?? f.fundId,
@@ -27,7 +39,7 @@ function normalizeFund(f) {
     profit:           f.profit              ?? f.total_profit  ?? f.totalProfit  ?? 0,
     minimumInvestment: f.minimumInvestment  ?? f.minimum_contribution ?? f.minContribution ?? f.min_contribution ?? 0,
     managerId:        f.managerId           ?? f.manager_id,
-    accountNumber:    f.accountNumber       ?? f.account_number ?? f.fundAccountNumber ?? f.fund_account_number ?? f.fund_number ?? f.fundNumber ?? null,
+    accountNumber:    getFundAccountNumber(f),
   };
 }
 

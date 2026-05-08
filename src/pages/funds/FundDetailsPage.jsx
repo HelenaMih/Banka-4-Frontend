@@ -15,6 +15,18 @@ import Alert from '../../components/ui/Alert';
 import styles from './FundDetailsPage.module.css';
 import { getErrorMessage } from '../../utils/apiError';
 
+function getFundAccountNumber(f) {
+  return (
+    f?.accountNumber ??
+    f?.account_number ??
+    f?.fundAccountNumber ??
+    f?.fund_account_number ??
+    f?.fundNumber ??
+    f?.fund_number ??
+    '—'
+  );
+}
+
 export default function FundDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -217,15 +229,7 @@ const handleSupervisorFundAction = async (type) => {
 
   const holdings = useMemo(() => Array.isArray(fund?.holdings) ? fund.holdings : [], [fund]);
   const performance = useMemo(() => Array.isArray(fund?.performance_history) ? fund.performance_history : [], [fund]);
-  const fundAccountNumber = useMemo(() => (
-    fund?.account_number ??
-    fund?.accountNumber ??
-    fund?.fund_account_number ??
-    fund?.fundAccountNumber ??
-    fund?.fund_number ??
-    fund?.fundNumber ??
-    '—'
-  ), [fund]);
+  const fundAccountNumber = useMemo(() => getFundAccountNumber(fund), [fund]);
 
   const fundId = fund?.id ?? id;
 
