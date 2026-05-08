@@ -8,6 +8,7 @@ import ClientHeader                  from '../../components/layout/ClientHeader'
 import Spinner                       from '../../components/ui/Spinner';
 import Alert                         from '../../components/ui/Alert';
 import InvestModal                   from '../../features/investmentFunds/InvestModal';
+import { getFundAccountNumber }      from '../../utils/fundAccount';
 import styles                        from './FundDetailPage.module.css';
 
 function formatRsd(value) {
@@ -16,18 +17,6 @@ function formatRsd(value) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-}
-
-function getFundAccountNumber(f) {
-  return (
-    f?.accountNumber ??
-    f?.account_number ??
-    f?.fundAccountNumber ??
-    f?.fund_account_number ??
-    f?.fundNumber ??
-    f?.fund_number ??
-    null
-  );
 }
 
 function normalizeFund(f) {
