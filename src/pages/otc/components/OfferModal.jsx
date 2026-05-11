@@ -10,6 +10,11 @@ function toDateInputValue(date = new Date()) {
 }
 
 export default function OfferModal({ open, stock, isSupervisor, onClose, onSubmit }) {
+    const tomorrow = useMemo(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return toDateInputValue(d);
+    }, []);
     const ownerLabel = useMemo(() => {
         if (!stock) return '';
         // novi shape (iz otc/public)
@@ -28,20 +33,31 @@ export default function OfferModal({ open, stock, isSupervisor, onClose, onSubmi
 
     const [volume, setVolume] = useState('');
     const [priceOffer, setPriceOffer] = useState('');
-    const [settlementDate, setSettlementDate] = useState(toDateInputValue(new Date()));
+    const [settlementDate, setSettlementDate] = useState(tomorrow);
     const [premium, setPremium] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const maxVolume = Number(stock?.public_amount ?? stock?.amount ?? 0);
+    const submitDisabled = submitting || !volume || !priceOffer || !settlementDate || premium === '';
 
     useEffect(() => {
         if (!open) return;
         setVolume('');
         setPriceOffer('');
-        setSettlementDate(toDateInputValue(new Date()));
+        setSettlementDate(tomorrow);
         setPremium('');
         setError('');
         setSubmitting(false);
-    }, [open]);
+    }, [open, tomorrow]);
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [open, onClose]);
 
     if (!open) return null;
 
@@ -54,8 +70,10 @@ export default function OfferModal({ open, stock, isSupervisor, onClose, onSubmi
         const pr = Number(premium);
 
         if (!Number.isFinite(v) || v <= 0) return setError('Volume mora biti pozitivan broj.');
+        if (maxVolume > 0 && v > maxVolume) return setError(`Volume ne može biti veći od ${maxVolume}.`);
         if (!Number.isFinite(p) || p <= 0) return setError('Price Offer mora biti pozitivan broj.');
         if (!settlementDate) return setError('Settlement Date je obavezan.');
+        if (settlementDate <= toDateInputValue(new Date())) return setError('Settlement Date mora biti u budućnosti.');
         if (!Number.isFinite(pr) || pr < 0) return setError('Premium Offer mora biti broj (0 ili veći).');
 
         setSubmitting(true);
@@ -128,6 +146,7 @@ export default function OfferModal({ open, stock, isSupervisor, onClose, onSubmi
                             value={settlementDate}
                             onChange={e => setSettlementDate(e.target.value)}
                             type="date"
+                            min={tomorrow}
                         />
                     </label>
 
@@ -150,7 +169,7 @@ export default function OfferModal({ open, stock, isSupervisor, onClose, onSubmi
                         <button type="button" className="cancelBtn" onClick={onClose} disabled={submitting}>
                             Cancel
                         </button>
-                        <button type="submit" className="submitBtn" disabled={submitting}>
+                        <button type="submit" className="submitBtn" disabled={submitDisabled}>
                             {submitting ? 'Submitting...' : 'Make an Offer'}
                         </button>
                     </div>

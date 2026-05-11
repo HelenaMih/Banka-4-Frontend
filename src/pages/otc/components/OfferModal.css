@@ -99,3 +99,9 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+.submitBtn:disabled,
+.cancelBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
