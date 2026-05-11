@@ -511,7 +511,9 @@ function AktivnePonude() {
                       { key: 'premium', label: 'Premium', current: selected.premium },
                     ].map(({ key, label, current }) => {
                       const next = counterForm[key];
-                      const changed = String(next ?? '') !== String(current ?? '');
+                      const changed = key === 'settlement_date'
+                        ? String(next ?? '') !== String(current ?? '')
+                        : Number(next) !== Number(current);
                       return (
                         <div key={key} className={styles.counterChangeRow}>
                           <span className={styles.summaryLabel}>{label}</span>
@@ -570,6 +572,7 @@ function SklopljeniUgovori() {
   const user = useAuthStore(s => s.user);
   const [options, setOptions]                 = useState([]);
   const [accounts, setAccounts]               = useState([]);
+  const [accountsWarning, setAccountsWarning] = useState('');
   const [loading, setLoading]                 = useState(true);
   const [error, setError]                     = useState('');
   const [filter, setFilter]                   = useState('valid');
@@ -604,9 +607,15 @@ function SklopljeniUgovori() {
         }
         setOptions(contracts);
 
-        const accountsRes = await retryRequest(() => accountsApi.getBankAccounts(), 1).catch(() => []);
-        const accs = normalizeListResponse(accountsRes) ?? [];
-        setAccounts(accs);
+        try {
+          setAccountsWarning('');
+          const accountsRes = await retryRequest(() => accountsApi.getBankAccounts(), 1);
+          const accs = normalizeListResponse(accountsRes) ?? [];
+          setAccounts(accs);
+        } catch (accErr) {
+          setAccounts([]);
+          setAccountsWarning(getErrorMessage(accErr, 'Računi trenutno nisu dostupni.'));
+        }
       } catch (err) {
         setError(getErrorMessage(err, 'Nije moguće učitati podatke. Pokušajte ponovo.'));
       } finally {
@@ -662,6 +671,8 @@ function SklopljeniUgovori() {
           <button className={styles.dismissBtn} onClick={() => setSuccessMsg('')}>✕</button>
         </div>
       )}
+
+      {accountsWarning && <div className={styles.errorBox}>{accountsWarning}</div>}
 
       <div className={styles.filterRow}>
         <button
@@ -787,10 +798,7 @@ export default function OtcPortalPage() {
             <span className={styles.breadcrumbAktivna}>{tabLabel[activeTab]}</span>
           </div>
           <div className={styles.pageHeader}>
-            <div>
-              <h2 className={styles.pageTitle}>Pregled OTC sekcije</h2>
-              <p className={styles.pageDesc}>Pregled dostupnih akcija, aktivnih pregovora i zaključenih opcionih ugovora.</p>
-            </div>
+            <p className={styles.pageDesc}>Pregled dostupnih akcija, aktivnih pregovora i zaključenih opcionih ugovora.</p>
           </div>
         </div>
 

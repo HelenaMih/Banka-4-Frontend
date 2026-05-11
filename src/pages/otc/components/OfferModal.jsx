@@ -9,6 +9,15 @@ function toDateInputValue(date = new Date()) {
     return `${yyyy}-${mm}-${dd}`;
 }
 
+function isFutureDate(dateStr) {
+    if (!dateStr) return false;
+    const selected = new Date(dateStr);
+    selected.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return selected > today;
+}
+
 export default function OfferModal({ open, stock, isSupervisor, onClose, onSubmit }) {
     const tomorrow = useMemo(() => {
         const d = new Date();
@@ -73,7 +82,7 @@ export default function OfferModal({ open, stock, isSupervisor, onClose, onSubmi
         if (maxVolume > 0 && v > maxVolume) return setError(`Volume ne može biti veći od ${maxVolume}.`);
         if (!Number.isFinite(p) || p <= 0) return setError('Price Offer mora biti pozitivan broj.');
         if (!settlementDate) return setError('Settlement Date je obavezan.');
-        if (settlementDate <= toDateInputValue(new Date())) return setError('Settlement Date mora biti u budućnosti.');
+        if (!isFutureDate(settlementDate)) return setError('Settlement Date mora biti u budućnosti.');
         if (!Number.isFinite(pr) || pr < 0) return setError('Premium Offer mora biti broj (0 ili veći).');
 
         setSubmitting(true);
