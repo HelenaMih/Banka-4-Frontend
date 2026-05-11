@@ -1,11 +1,11 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import gsap from 'gsap';
-import Navbar from '../../components/layout/Navbar';
 import Spinner from '../../components/ui/Spinner';
 import { useAuthStore } from '../../store/authStore';
 import { portfolioApi } from '../../api/endpoints/portfolio';
 import { accountsApi } from '../../api/endpoints/accounts';
 import { otcApi } from '../../api/endpoints/otc';
+import { getErrorMessage } from '../../utils/apiError';
 import OfferModal from './components/OfferModal';
 import styles from './OtcPortalPage.module.css';
 
@@ -23,6 +23,43 @@ function isExpired(settlementDate) {
 function formatDate(dateStr) {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('sr-RS');
+}
+
+function normalizeListResponse(res) {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.content)) return res.content;
+  return null;
+}
+
+function isFutureDate(dateStr) {
+  if (!dateStr) return false;
+  const selected = new Date(dateStr);
+  selected.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return selected > today;
+}
+
+function shouldRetryRequest(err) {
+  const status = err?.status ?? err?.statusCode ?? err?.response?.status;
+  if (typeof status === 'number' && status >= 500) return true;
+  const msg = getErrorMessage(err, '').toLowerCase();
+  return msg.includes('network') || msg.includes('timeout') || msg.includes('fetch');
+}
+
+async function retryRequest(requestFn, maxRetries = 1) {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      return await requestFn();
+    } catch (err) {
+      lastError = err;
+      if (attempt === maxRetries || !shouldRetryRequest(err)) throw err;
+      await new Promise(resolve => setTimeout(resolve, 300 * (attempt + 1)));
+    }
+  }
+  throw lastError;
 }
 
 // ─── Confirm Modal (exercise) ─────────────────────────────────────────────────
@@ -105,11 +142,16 @@ function DostupneAkcije() {
       try {
         setLoading(true);
         setError('');
-        const res  = await otcApi.getPublicListings();
-        const list = Array.isArray(res) ? res : (res?.data ?? res?.content ?? []);
+        const res = await retryRequest(() => otcApi.getPublicListings(), 1);
+        const list = normalizeListResponse(res);
+        if (!list) {
+          setStocks([]);
+          setError('Server je vratio neočekivan format podataka za dostupne akcije.');
+          return;
+        }
         setStocks(list);
-      } catch {
-        setError('Nije moguće učitati dostupne akcije.');
+      } catch (err) {
+        setError(getErrorMessage(err, 'Nije moguće učitati dostupne akcije.'));
       } finally {
         setLoading(false);
       }
@@ -118,16 +160,20 @@ function DostupneAkcije() {
   }, []);
 
   async function handleOfferSubmit(payload) {
-    await otcApi.createOffer({
-      asset_ownership_id:   payload.stockId,
-      amount:               payload.volumeOfStock,
-      price_per_stock:      payload.priceOffer,
-      settlement_date:      payload.settlementDateOffer,
-      premium:              payload.premiumOffer,
-    });
-    setOfferStock(null);
-    setSuccessMsg(`Ponuda za ${payload.stock} je uspešno poslata!`);
-    setTimeout(() => setSuccessMsg(''), 4000);
+    try {
+      await retryRequest(() => otcApi.createOffer({
+        asset_ownership_id: payload.stockId,
+        amount: payload.volumeOfStock,
+        price_per_stock: payload.priceOffer,
+        settlement_date: payload.settlementDateOffer,
+        premium: payload.premiumOffer,
+      }), 1);
+      setOfferStock(null);
+      setSuccessMsg(`Ponuda za ${payload.stock} je uspešno poslata!`);
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (err) {
+      throw new Error(getErrorMessage(err, 'Greška prilikom slanja ponude.'));
+    }
   }
 
   return (
@@ -203,6 +249,11 @@ function DostupneAkcije() {
 // ─── Tab: Aktivne ponude ──────────────────────────────────────────────────────
 function AktivnePonude() {
   const user = useAuthStore(s => s.user);
+  const minSettlementDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
   const [offers, setOffers]               = useState([]);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState('');
@@ -214,16 +265,29 @@ function AktivnePonude() {
   const [actionSuccess, setActionSuccess] = useState('');
 
   useEffect(() => { loadOffers(); }, []);
+  useEffect(() => {
+    if (!selected) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') closeModal();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selected]);
 
   async function loadOffers() {
     try {
       setLoading(true);
       setError('');
-      const res  = await otcApi.getMyNegotiations();
-      const list = Array.isArray(res) ? res : (res?.content ?? res?.data ?? []);
+      const res = await retryRequest(() => otcApi.getMyNegotiations(), 1);
+      const list = normalizeListResponse(res);
+      if (!list) {
+        setOffers([]);
+        setError('Server je vratio neočekivan format aktivnih ponuda.');
+        return;
+      }
       setOffers(list);
-    } catch {
-      setError('Greška pri učitavanju aktivnih ponuda.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Greška pri učitavanju aktivnih ponuda.'));
     } finally {
       setLoading(false);
     }
@@ -249,16 +313,38 @@ function AktivnePonude() {
     setActionSuccess('');
   }
 
+  function validateCounterFormInput() {
+    const amount = Number(counterForm.amount);
+    const price = Number(counterForm.price_per_stock);
+    const premium = Number(counterForm.premium);
+    if (!Number.isFinite(amount) || amount <= 0) return 'Amount mora biti pozitivan broj.';
+    if (!Number.isFinite(price) || price <= 0) return 'Price per stock mora biti pozitivan broj.';
+    if (!counterForm.settlement_date) return 'Settlement Date je obavezan.';
+    if (!isFutureDate(counterForm.settlement_date)) return 'Settlement Date mora biti u budućnosti.';
+    if (!Number.isFinite(premium) || premium < 0) return 'Premium mora biti broj (0 ili veći).';
+    return '';
+  }
+
+  function hasCounterChanges() {
+    if (!selected) return false;
+    return (
+      Number(counterForm.amount) !== Number(selected.amount) ||
+      Number(counterForm.price_per_stock) !== Number(selected.price_per_stock) ||
+      counterForm.settlement_date !== (selected.settlement_date ? selected.settlement_date.slice(0, 10) : '') ||
+      Number(counterForm.premium) !== Number(selected.premium)
+    );
+  }
+
   async function handleAccept() {
     try {
       setActionLoading(true);
       setActionError('');
-      await otcApi.acceptOffer(selected.otc_offer_id);
+      await retryRequest(() => otcApi.acceptOffer(selected.otc_offer_id), 1);
       setActionSuccess('Ponuda je uspešno prihvaćena.');
       await loadOffers();
       setTimeout(closeModal, 1500);
-    } catch {
-      setActionError('Greška pri prihvatanju ponude.');
+    } catch (err) {
+      setActionError(getErrorMessage(err, 'Greška pri prihvatanju ponude.'));
     } finally {
       setActionLoading(false);
     }
@@ -268,32 +354,41 @@ function AktivnePonude() {
     try {
       setActionLoading(true);
       setActionError('');
-      await otcApi.rejectOffer(selected.otc_offer_id);
+      await retryRequest(() => otcApi.rejectOffer(selected.otc_offer_id), 1);
       setActionSuccess('Pregovor je uspešno otkazan.');
       await loadOffers();
       setTimeout(closeModal, 1500);
-    } catch {
-      setActionError('Greška pri otkazivanju pregovora.');
+    } catch (err) {
+      setActionError(getErrorMessage(err, 'Greška pri otkazivanju pregovora.'));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function handleCounter() {
+    const validationError = validateCounterFormInput();
+    if (validationError) {
+      setActionError(validationError);
+      return;
+    }
+    if (!hasCounterChanges()) {
+      setActionError('Izmenite bar jedno polje pre slanja kontraponude.');
+      return;
+    }
     try {
       setActionLoading(true);
       setActionError('');
-      await otcApi.sendCounterOffer(selected.otc_offer_id, {
-        amount:          Number(counterForm.amount),
+      await retryRequest(() => otcApi.sendCounterOffer(selected.otc_offer_id, {
+        amount: Number(counterForm.amount),
         price_per_stock: Number(counterForm.price_per_stock),
         settlement_date: counterForm.settlement_date,
-        premium:         Number(counterForm.premium),
-      });
+        premium: Number(counterForm.premium),
+      }), 1);
       setActionSuccess('Kontraponuda je uspešno poslata.');
       await loadOffers();
       setTimeout(closeModal, 1500);
-    } catch {
-      setActionError('Greška pri slanju kontraponude.');
+    } catch (err) {
+      setActionError(getErrorMessage(err, 'Greška pri slanju kontraponude.'));
     } finally {
       setActionLoading(false);
     }
@@ -407,6 +502,28 @@ function AktivnePonude() {
 
               {modalMode === 'counter' && (
                 <>
+                  <div className={styles.counterChangesCard}>
+                    <div className={styles.counterChangesTitle}>Šta menjate:</div>
+                    {[
+                      { key: 'amount', label: 'Amount', current: selected.amount },
+                      { key: 'price_per_stock', label: 'Price per stock', current: selected.price_per_stock },
+                      { key: 'settlement_date', label: 'Settlement Date', current: selected.settlement_date ? selected.settlement_date.slice(0, 10) : '' },
+                      { key: 'premium', label: 'Premium', current: selected.premium },
+                    ].map(({ key, label, current }) => {
+                      const next = counterForm[key];
+                      const changed = key === 'settlement_date'
+                        ? String(next ?? '') !== String(current ?? '')
+                        : Number(next) !== Number(current);
+                      return (
+                        <div key={key} className={styles.counterChangeRow}>
+                          <span className={styles.summaryLabel}>{label}</span>
+                          <span className={changed ? styles.counterChanged : ''}>
+                            {String(current ?? '—')} → {String(next ?? '—')}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                   <div className={styles.fieldGrid2 ?? styles.field}>
                     {[
                       { key: 'amount',          label: 'Amount',         type: 'number' },
@@ -419,6 +536,14 @@ function AktivnePonude() {
                         <input
                           type={type}
                           value={counterForm[key]}
+                          min={
+                            key === 'settlement_date'
+                              ? minSettlementDate
+                              : key === 'premium'
+                                ? '0'
+                                : (type === 'number' ? '1' : undefined)
+                          }
+                          step={type === 'number' && key !== 'amount' ? '0.01' : undefined}
                           onChange={e => setCounterForm(p => ({ ...p, [key]: e.target.value }))}
                         />
                       </div>
@@ -447,6 +572,7 @@ function SklopljeniUgovori() {
   const user = useAuthStore(s => s.user);
   const [options, setOptions]                 = useState([]);
   const [accounts, setAccounts]               = useState([]);
+  const [accountsWarning, setAccountsWarning] = useState('');
   const [loading, setLoading]                 = useState(true);
   const [error, setError]                     = useState('');
   const [filter, setFilter]                   = useState('valid');
@@ -457,21 +583,41 @@ function SklopljeniUgovori() {
   const [successMsg, setSuccessMsg]           = useState('');
 
   useEffect(() => {
+    if (!confirmModal) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setConfirmModal(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [confirmModal]);
+
+  useEffect(() => {
     async function load() {
       if (!user?.id) return;
       try {
         setLoading(true);
         setError('');
 
-        const res = await otcApi.getContracts();
-        const contracts = Array.isArray(res) ? res : (res?.data ?? []);
+        const res = await retryRequest(() => otcApi.getContracts(), 1);
+        const contracts = normalizeListResponse(res);
+        if (!contracts) {
+          setOptions([]);
+          setError('Server je vratio neočekivan format ugovora.');
+          return;
+        }
         setOptions(contracts);
 
-        const accountsRes = await accountsApi.getBankAccounts().catch(() => []);
-        const accs = Array.isArray(accountsRes) ? accountsRes : (accountsRes?.data ?? []);
-        setAccounts(accs);
-      } catch {
-        setError('Nije moguće učitati podatke. Pokušajte ponovo.');
+        try {
+          setAccountsWarning('');
+          const accountsRes = await retryRequest(() => accountsApi.getBankAccounts(), 1);
+          const accs = normalizeListResponse(accountsRes) ?? [];
+          setAccounts(accs);
+        } catch (accErr) {
+          setAccounts([]);
+          setAccountsWarning(getErrorMessage(accErr, 'Računi trenutno nisu dostupni.'));
+        }
+      } catch (err) {
+        setError(getErrorMessage(err, 'Nije moguće učitati podatke. Pokušajte ponovo.'));
       } finally {
         setLoading(false);
       }
@@ -497,14 +643,14 @@ function SklopljeniUgovori() {
     try {
       setExerciseLoading(true);
       setExerciseError('');
-      await portfolioApi.exerciseOption(user.id, confirmModal.stock_asset_id, selectedAccount);
+      await retryRequest(() => portfolioApi.exerciseOption(user.id, confirmModal.stock_asset_id, selectedAccount), 1);
       setSuccessMsg(`Opcija ${confirmModal.ticker} je uspešno iskorišćena!`);
       setConfirmModal(null);
-      const res = await otcApi.getContracts();
-      const contracts = Array.isArray(res) ? res : (res?.data ?? []);
+      const res = await retryRequest(() => otcApi.getContracts(), 1);
+      const contracts = normalizeListResponse(res) ?? [];
       setOptions(contracts);
     } catch (err) {
-      setExerciseError(err?.message ?? 'Greška pri iskorišćavanju opcije. Proverite da li je opcija in-the-money.');
+      setExerciseError(getErrorMessage(err, 'Greška pri iskorišćavanju opcije. Proverite da li je opcija in-the-money.'));
     } finally {
       setExerciseLoading(false);
     }
@@ -525,6 +671,8 @@ function SklopljeniUgovori() {
           <button className={styles.dismissBtn} onClick={() => setSuccessMsg('')}>✕</button>
         </div>
       )}
+
+      {accountsWarning && <div className={styles.errorBox}>{accountsWarning}</div>}
 
       <div className={styles.filterRow}>
         <button
@@ -629,9 +777,20 @@ export default function OtcPortalPage() {
 
   return (
     <div ref={pageRef} className={styles.stranica}>
-      <Navbar />
-
       <main className={styles.sadrzaj}>
+        <header className={`page-anim ${styles.topHeader}`}>
+          <div className={styles.topHeaderContent}>
+            <h1 className={styles.topHeaderTitle}>OTC Ponude i Ugovori</h1>
+            <button
+              type="button"
+              className={styles.backButton}
+              onClick={() => window.history.back()}
+            >
+              ← Nazad
+            </button>
+          </div>
+        </header>
+
         <div className="page-anim">
           <div className={styles.breadcrumb}>
             <span>OTC</span>
@@ -639,10 +798,7 @@ export default function OtcPortalPage() {
             <span className={styles.breadcrumbAktivna}>{tabLabel[activeTab]}</span>
           </div>
           <div className={styles.pageHeader}>
-            <div>
-              <h1 className={styles.pageTitle}>OTC Ponude i Ugovori</h1>
-              <p className={styles.pageDesc}>Pregled dostupnih akcija, aktivnih pregovora i zaključenih opcionih ugovora.</p>
-            </div>
+            <p className={styles.pageDesc}>Pregled dostupnih akcija, aktivnih pregovora i zaključenih opcionih ugovora.</p>
           </div>
         </div>
 

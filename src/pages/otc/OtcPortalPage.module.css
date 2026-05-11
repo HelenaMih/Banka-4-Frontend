@@ -10,6 +10,40 @@
   gap: 1.5rem;
 }
 
+.topHeader {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.topHeaderContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.topHeaderTitle {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0;
+  color: var(--tx-1);
+}
+
+.backButton {
+  background: white;
+  color: var(--tx-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.backButton:hover { background: var(--bg); }
+
 /* ── Breadcrumb ── */
 .breadcrumb {
   display: flex;
@@ -227,6 +261,19 @@
 .summaryGrid { display: flex; flex-direction: column; gap: 10px; background: var(--bg); border-radius: 8px; padding: 14px; margin-bottom: 16px; }
 .summaryRow  { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
 .summaryLabel { color: var(--tx-2); }
+.counterChangesCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 14px;
+  background: #fafafa;
+}
+.counterChangesTitle { font-size: 13px; font-weight: 700; color: var(--tx-1); }
+.counterChangeRow { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.counterChanged { color: #2563eb; font-weight: 600; }
 
 .infoStrip {
   background: #fffbeb;
@@ -260,3 +307,15 @@
 }
 .formActions .btnGhost { flex: 1; }
 .formActions .btnPrimary { flex: 2; }
+
+@media (max-width: 768px) {
+  .topHeaderContent {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .counterChangeRow {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
